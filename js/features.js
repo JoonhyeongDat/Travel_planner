@@ -157,6 +157,19 @@ const Itinerary = (() => {
             </div>`;
         }
 
+        // 경로 탐색 결과 없음
+        if (info.noRoute) {
+            return `<div class="travel-connector travel-connector-no-route" data-pair="${pairKey}">
+                <div class="travel-connector-line"></div>
+                <div class="travel-modes">
+                    <span class="travel-no-route-text">경로 탐색 결과 없음</span>
+                </div>
+                <button class="travel-edit-btn" style="opacity:1" onclick="Itinerary.editTravelTime('${dayId}','${fromItem.id}')" title="이동 시간 직접 입력">
+                    <span class="material-symbols-rounded">edit</span>
+                </button>
+            </div>`;
+        }
+
         const modes = [
             { key: 'walking', icon: 'directions_walk', label: '도보' },
             { key: 'driving', icon: 'directions_car', label: '차량' },
@@ -242,7 +255,16 @@ const Itinerary = (() => {
     }
 
     function saveTravelResults(results, dayId, itemId) {
-        if (Object.keys(results).length === 0) return;
+        const trip = Store.getCurrentTrip();
+        if (!trip) return;
+        if (Object.keys(results).length === 0) {
+            // 모든 경로 탐색 실패 → noRoute 마커 저장
+            Store.updateItineraryItem(trip.id, dayId, itemId, {
+                travelInfo: { noRoute: true, selectedMode: '' }
+            });
+            render();
+            return;
+        }
         // 가장 짧은 모드를 기본 선택
         let shortest = null, shortestVal = Infinity;
         for (const [k, v] of Object.entries(results)) {
@@ -252,11 +274,8 @@ const Itinerary = (() => {
             }
         }
         results.selectedMode = shortest;
-        const trip = Store.getCurrentTrip();
-        if (trip) {
-            Store.updateItineraryItem(trip.id, dayId, itemId, { travelInfo: results });
-            render();
-        }
+        Store.updateItineraryItem(trip.id, dayId, itemId, { travelInfo: results });
+        render();
     }
 
     // 이동 수단 선택
@@ -2969,52 +2988,76 @@ const MapView = (() => {
             return;
         }
 
-        const directionsService = new google.maps.DirectionsService();
+        // 기존 렌더러 정리
         if (directionsRenderer) directionsRenderer.setMap(null);
-        directionsRenderer = new google.maps.DirectionsRenderer({
-            map: map,
-            suppressMarkers: true,
-            polylineOptions: {
-                strokeColor: getComputedStyle(document.body).getPropertyValue('--primary').trim() || '#4F46E5',
-                strokeOpacity: 0.8,
-                strokeWeight: 4
-            }
-        });
+        if (!window._routeRenderers) window._routeRenderers = [];
+        window._routeRenderers.forEach(r => r.setMap(null));
+        window._routeRenderers = [];
 
-        const origin = { lat: places[0].lat, lng: places[0].lng };
-        const destination = { lat: places[places.length - 1].lat, lng: places[places.length - 1].lng };
-        const waypoints = places.slice(1, -1).map(p => ({
-            location: { lat: p.lat, lng: p.lng },
-            stopover: true
-        }));
+        const directionsService = new google.maps.DirectionsService();
+        const polyColor = getComputedStyle(document.body).getPropertyValue('--primary').trim() || '#4F46E5';
 
-        directionsService.route({
-            origin,
-            destination,
-            waypoints: waypoints.slice(0, 23),
-            optimizeWaypoints: true,
-            travelMode: google.maps.TravelMode.DRIVING
-        }, (result, status) => {
-            if (status === 'OK') {
-                directionsRenderer.setDirections(result);
+        // 구간별로 개별 경로 요청 (실패 구간은 건너뜀)
+        let totalDist = 0, totalDur = 0;
+        let successCount = 0, failCount = 0;
+        let completed = 0;
+        const totalPairs = places.length - 1;
 
-                let totalDist = 0, totalDur = 0;
-                result.routes[0].legs.forEach(leg => {
+        for (let i = 0; i < totalPairs; i++) {
+            const origin = { lat: places[i].lat, lng: places[i].lng };
+            const destination = { lat: places[i + 1].lat, lng: places[i + 1].lng };
+
+            directionsService.route({
+                origin,
+                destination,
+                travelMode: google.maps.TravelMode.DRIVING
+            }, (result, status) => {
+                completed++;
+
+                if (status === 'OK' && result.routes[0]) {
+                    const renderer = new google.maps.DirectionsRenderer({
+                        map: map,
+                        suppressMarkers: true,
+                        polylineOptions: {
+                            strokeColor: polyColor,
+                            strokeOpacity: 0.8,
+                            strokeWeight: 4
+                        },
+                        preserveViewport: true
+                    });
+                    renderer.setDirections(result);
+                    window._routeRenderers.push(renderer);
+
+                    const leg = result.routes[0].legs[0];
                     totalDist += leg.distance.value;
                     totalDur += leg.duration.value;
-                });
-                const distKm = (totalDist / 1000).toFixed(1);
-                const durHrs = Math.floor(totalDur / 3600);
-                const durMin = Math.round((totalDur % 3600) / 60);
+                    successCount++;
+                } else {
+                    failCount++;
+                }
 
-                UI.showToast(
-                    `경로: 총 ${distKm}km, 예상 ${durHrs > 0 ? durHrs + '시간 ' : ''}${durMin}분`,
-                    'success', 5000
-                );
-            } else {
-                UI.showToast('경로를 계산할 수 없습니다: ' + status, 'error');
-            }
-        });
+                // 모든 구간 완료
+                if (completed === totalPairs) {
+                    if (successCount === 0) {
+                        UI.showToast('경로를 계산할 수 없습니다', 'error');
+                        return;
+                    }
+                    const distKm = (totalDist / 1000).toFixed(1);
+                    const durHrs = Math.floor(totalDur / 3600);
+                    const durMin = Math.round((totalDur % 3600) / 60);
+                    let msg = `경로: 총 ${distKm}km, 예상 ${durHrs > 0 ? durHrs + '시간 ' : ''}${durMin}분`;
+                    if (failCount > 0) {
+                        msg += ` (${failCount}개 구간 경로 없음)`;
+                    }
+                    UI.showToast(msg, failCount > 0 ? 'warning' : 'success', 5000);
+
+                    // 전체 경로가 보이도록 지도 조정
+                    const bounds = new google.maps.LatLngBounds();
+                    places.forEach(p => bounds.extend({ lat: p.lat, lng: p.lng }));
+                    map.fitBounds(bounds);
+                }
+            });
+        }
     }
 
     function setFilter(filterVal) {

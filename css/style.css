@@ -1421,6 +1421,13 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     background: var(--primary-bg);
 }
 
+.travel-no-route-text {
+    font-size: 0.72rem;
+    color: var(--danger);
+    padding: 4px 10px;
+    font-weight: 500;
+}
+
 /* --- 예약 관리 --- */
 .reservations-header {
     display: flex;
