@@ -18,11 +18,13 @@ const Itinerary = (() => {
                         <span class="material-symbols-rounded">add</span> 일차 추가하기
                     </button>
                 </div>`;
+            renderItineraryCandidates();
             return;
         }
 
         container.innerHTML = trip.days.map(day => renderDay(day, trip)).join('');
         UI.initDragAndDrop(container);
+        renderItineraryCandidates();
     }
 
     function renderDay(day, trip) {
@@ -110,6 +112,9 @@ const Itinerary = (() => {
                     </button>
                     <button class="btn-icon btn-sm" onclick="Itinerary.toggleFavorite('${dayId}','${item.id}')" title="즐겨찾기">
                         <span class="material-symbols-rounded">${item.isFavorite ? 'favorite' : 'favorite_border'}</span>
+                    </button>
+                    <button class="btn-icon btn-sm" onclick="Itinerary.moveItemToCandidate('${dayId}','${item.id}')" title="후보로 이동">
+                        <span class="material-symbols-rounded">bookmark_remove</span>
                     </button>
                     <button class="btn-icon btn-sm" onclick="Itinerary.removeItem('${dayId}','${item.id}')" title="삭제">
                         <span class="material-symbols-rounded">delete_outline</span>
@@ -626,11 +631,132 @@ const Itinerary = (() => {
         render();
     }
 
+    // ===== 일정 후보 관리 (일정 페이지) =====
+    function renderItineraryCandidates() {
+        const trip = Store.getCurrentTrip();
+        const list = document.getElementById('itinerary-candidates-list');
+        const countEl = document.getElementById('itinerary-candidates-count');
+        if (!list) return;
+
+        const candidates = trip ? Store.getCandidates(trip.id) : [];
+        if (countEl) countEl.textContent = candidates.length;
+
+        if (candidates.length === 0) {
+            list.innerHTML = `<div class="empty-state-sm"><p>일정 후보가 없습니다. 지도에서 장소를 검색하고 후보에 추가해보세요.</p></div>`;
+            return;
+        }
+
+        const dayOptions = trip.days.map(d =>
+            `<option value="${d.id}">Day ${d.dayNumber}</option>`
+        ).join('');
+
+        list.innerHTML = candidates.map(c => {
+            const catInfo = UI.categoryInfo[c.category] || UI.categoryInfo.place;
+            return `<div class="itin-candidate-item" data-candidate-id="${c.id}">
+                <div class="itin-candidate-left">
+                    <span class="itin-candidate-icon" style="background:${catInfo.color}15;color:${catInfo.color}">${catInfo.icon}</span>
+                    <div class="itin-candidate-info">
+                        <div class="itin-candidate-name">${UI.escapeHtml(c.title)}</div>
+                        <div class="itin-candidate-addr">${UI.escapeHtml(c.address || '')}</div>
+                        ${c.rating ? `<span class="itin-candidate-rating">⭐ ${c.rating}</span>` : ''}
+                    </div>
+                </div>
+                <div class="itin-candidate-right">
+                    <select class="itin-candidate-day" data-cid="${c.id}">${dayOptions}</select>
+                    <button class="btn-sm-primary" onclick="Itinerary.addCandidateToDay('${c.id}', this)" title="일정에 추가">
+                        <span class="material-symbols-rounded">add</span> 추가
+                    </button>
+                    <button class="btn-icon btn-sm" onclick="Itinerary.removeCandidateFromList('${c.id}')" title="후보 삭제">
+                        <span class="material-symbols-rounded">close</span>
+                    </button>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function addCandidateToDay(candidateId, btnEl) {
+        const trip = Store.getCurrentTrip();
+        if (!trip) return;
+        const candidate = (trip.candidates || []).find(c => c.id === candidateId);
+        if (!candidate) return;
+
+        // 선택된 Day 가져오기
+        const selectEl = btnEl.parentElement.querySelector('.itin-candidate-day');
+        const dayId = selectEl ? selectEl.value : (trip.days[0] && trip.days[0].id);
+        if (!dayId) { UI.showToast('일차를 먼저 추가해주세요', 'warning'); return; }
+
+        Store.addItineraryItem(trip.id, dayId, {
+            title: candidate.title,
+            category: candidate.category,
+            address: candidate.address,
+            lat: candidate.lat,
+            lng: candidate.lng,
+            placeId: candidate.placeId || null,
+            imageUrl: candidate.imageUrl || '',
+            notes: candidate.notes || ''
+        });
+
+        // 후보에서 제거
+        Store.removeCandidate(trip.id, candidateId);
+        _fetchedPairs.clear();
+        render();
+        UI.showToast(`"${candidate.title}" 일정에 추가됨`, 'success');
+    }
+
+    function removeCandidateFromList(candidateId) {
+        const trip = Store.getCurrentTrip();
+        if (!trip) return;
+        Store.removeCandidate(trip.id, candidateId);
+        renderItineraryCandidates();
+        UI.showToast('후보에서 삭제됨', 'info');
+    }
+
+    function moveItemToCandidate(dayId, itemId) {
+        const trip = Store.getCurrentTrip();
+        if (!trip) return;
+        const day = trip.days.find(d => d.id === dayId);
+        if (!day) return;
+        const item = day.items.find(i => i.id === itemId);
+        if (!item) return;
+
+        // 후보에 추가
+        Store.addCandidate(trip.id, {
+            title: item.title,
+            category: item.category,
+            address: item.address,
+            lat: item.lat,
+            lng: item.lng,
+            imageUrl: item.imageUrl,
+            placeId: item.placeId || null,
+            rating: null,
+            notes: item.notes
+        });
+
+        // 일정에서 제거
+        Store.removeItineraryItem(trip.id, dayId, itemId);
+        _fetchedPairs.clear();
+        render();
+        App.updateDashboard();
+        UI.showToast(`"${item.title}" 후보로 이동됨`, 'success');
+    }
+
+    function initCandidatesPanel() {
+        const toggle = document.getElementById('itinerary-candidates-toggle');
+        if (toggle) {
+            toggle.addEventListener('click', () => {
+                const panel = document.getElementById('itinerary-candidates-panel');
+                if (panel) panel.classList.toggle('open');
+            });
+        }
+    }
+
     return {
         render, addDay, removeDay,
         showAddItemModal, showEditItemModal,
         removeItem, toggleFavorite, addComment,
-        selectTravelMode
+        selectTravelMode, moveItemToCandidate,
+        addCandidateToDay, removeCandidateFromList,
+        initCandidatesPanel
     };
 })();
 
@@ -2076,7 +2202,7 @@ const MapView = (() => {
         }
 
         list.innerHTML = candidates.map(c => {
-            const catInfo = UI.categoryInfo[c.category] || UI.categoryInfo.food;
+            const catInfo = UI.categoryInfo[c.category] || UI.categoryInfo.place;
             return `
                 <div class="map-candidate-item">
                     <div class="map-candidate-info">
@@ -2504,7 +2630,7 @@ const MapView = (() => {
                 scale: 16,
                 labelOrigin: new google.maps.Point(0, 0)
             },
-            label: { text: '🍽', color: 'white', fontSize: '10px' },
+            label: { text: (UI.categoryInfo[candidate.category] || UI.categoryInfo.place).icon[0], color: 'white', fontSize: '10px' },
             animation: google.maps.Animation.BOUNCE
         });
         setTimeout(() => { if (searchMarker) searchMarker.setAnimation(null); }, 1400);

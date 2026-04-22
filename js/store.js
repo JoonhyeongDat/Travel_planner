@@ -598,7 +598,7 @@ const Store = (() => {
             const candidate = {
                 id: generateId(),
                 title: data.title || '',
-                category: data.category || 'food',
+                category: data.category || 'place',
                 address: data.address || '',
                 lat: data.lat || null,
                 lng: data.lng || null,

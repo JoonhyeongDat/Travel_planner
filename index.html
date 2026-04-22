@@ -303,6 +303,20 @@
                             </button>
                         </div>
                     </div>
+                    <!-- 일정 후보 패널 -->
+                    <div class="itinerary-candidates-panel" id="itinerary-candidates-panel">
+                        <div class="itinerary-candidates-header" id="itinerary-candidates-toggle">
+                            <div class="itinerary-candidates-title">
+                                <span class="material-symbols-rounded">bookmark</span>
+                                <span>일정 후보</span>
+                                <span class="itinerary-candidates-count" id="itinerary-candidates-count">0</span>
+                            </div>
+                            <span class="material-symbols-rounded itinerary-candidates-arrow">expand_more</span>
+                        </div>
+                        <div class="itinerary-candidates-body" id="itinerary-candidates-body">
+                            <div id="itinerary-candidates-list" class="itinerary-candidates-list"></div>
+                        </div>
+                    </div>
                 </section>
 
                 <!-- 예약 관리 페이지 -->
@@ -426,7 +440,7 @@
                                             <span class="material-symbols-rounded">event</span> 일정에 추가
                                         </button>
                                         <button class="map-card-btn amber" id="btn-card-add-candidate">
-                                            <span class="material-symbols-rounded">restaurant</span> 후보에 추가
+                                            <span class="material-symbols-rounded">bookmark_add</span> 후보에 추가
                                         </button>
                                         <a class="map-card-btn outline" id="btn-card-gmaps" target="_blank" rel="noopener">
                                             <span class="material-symbols-rounded">open_in_new</span> Google Maps
@@ -438,7 +452,7 @@
                         <div class="map-sidebar" id="map-sidebar">
                             <div class="map-sidebar-tabs">
                                 <button class="map-tab active" data-map-tab="places">📍 장소 목록</button>
-                                <button class="map-tab" data-map-tab="candidates">🍽️ 후보</button>
+                                <button class="map-tab" data-map-tab="candidates">📌 일정 후보</button>
                             </div>
                             <div id="map-tab-places" class="map-tab-content active">
                                 <div id="map-places-list" class="map-places-list"></div>

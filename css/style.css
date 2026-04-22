@@ -815,6 +815,160 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     gap: 24px;
 }
 
+/* 일정 후보 패널 */
+.itinerary-candidates-panel {
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-light);
+    margin-top: 24px;
+    overflow: hidden;
+}
+.itinerary-candidates-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 20px;
+    cursor: pointer;
+    user-select: none;
+    transition: background var(--transition-fast);
+}
+.itinerary-candidates-header:hover {
+    background: var(--bg-secondary);
+}
+.itinerary-candidates-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+}
+.itinerary-candidates-title .material-symbols-rounded {
+    color: var(--primary);
+    font-size: 1.2rem;
+}
+.itinerary-candidates-count {
+    background: var(--primary);
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    min-width: 20px;
+    text-align: center;
+}
+.itinerary-candidates-arrow {
+    transition: transform var(--transition-fast);
+    color: var(--text-tertiary);
+}
+.itinerary-candidates-panel.open .itinerary-candidates-arrow {
+    transform: rotate(180deg);
+}
+.itinerary-candidates-body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+.itinerary-candidates-panel.open .itinerary-candidates-body {
+    max-height: 2000px;
+}
+.itinerary-candidates-list {
+    padding: 0 16px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.itin-candidate-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-light);
+    transition: all var(--transition-fast);
+}
+.itin-candidate-item:hover {
+    border-color: var(--primary-light);
+    box-shadow: var(--shadow-sm);
+}
+.itin-candidate-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+}
+.itin-candidate-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+.itin-candidate-info {
+    min-width: 0;
+}
+.itin-candidate-name {
+    font-weight: 600;
+    font-size: 0.88rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.itin-candidate-addr {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.itin-candidate-rating {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    margin-top: 2px;
+}
+.itin-candidate-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+.itin-candidate-day {
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.78rem;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    cursor: pointer;
+}
+.btn-sm-primary {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border: none;
+    background: var(--primary);
+    color: #fff;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+    white-space: nowrap;
+}
+.btn-sm-primary:hover {
+    background: var(--primary-dark);
+}
+.btn-sm-primary .material-symbols-rounded {
+    font-size: 0.95rem;
+}
+
 /* 일차 카드 */
 .day-card {
     background: var(--bg-card);

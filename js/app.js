@@ -112,6 +112,7 @@ const App = (() => {
 
         // 일정 페이지 버튼
         document.getElementById('btn-add-day').addEventListener('click', () => Itinerary.addDay());
+        Itinerary.initCandidatesPanel();
 
         // 일정 뷰 전환
         document.querySelectorAll('.view-btn').forEach(btn => {
