@@ -1268,13 +1268,176 @@ const Itinerary = (() => {
         }
     }
 
+    function showAddCandidateModal() {
+        const trip = Store.getCurrentTrip();
+        if (!trip) { UI.showToast('먼저 여행을 생성해주세요', 'warning'); return; }
+
+        UI.showModal('일정 후보 추가', `
+            <div class="form-group" style="background:var(--primary-bg);padding:14px;border-radius:var(--radius-md);border:1.5px dashed var(--primary-light)">
+                <label class="form-label" style="color:var(--primary);display:flex;align-items:center;gap:6px">
+                    <span class="material-symbols-rounded" style="font-size:1.1rem">search</span>
+                    Google Maps에서 장소 검색
+                </label>
+                <div style="display:flex;gap:8px">
+                    <input type="text" id="cand-place-search" placeholder="장소명 검색..." style="flex:1" />
+                    <button class="btn-primary btn-sm" id="btn-cand-search" type="button" style="white-space:nowrap">
+                        <span class="material-symbols-rounded" style="font-size:1rem">search</span> 검색
+                    </button>
+                </div>
+                <div id="cand-search-results" style="display:none;margin-top:8px;max-height:200px;overflow-y:auto;border:1px solid var(--border-light);border-radius:var(--radius-sm)"></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;margin:10px 0;color:var(--text-tertiary);font-size:0.8rem">
+                <div style="flex:1;height:1px;background:var(--border)"></div>
+                <span>또는 Google Maps 링크</span>
+                <div style="flex:1;height:1px;background:var(--border)"></div>
+            </div>
+            <div class="form-group">
+                <div style="display:flex;gap:8px">
+                    <input type="text" id="cand-gmaps-link" placeholder="Google Maps 링크를 붙여넣으세요" style="flex:1" />
+                    <button class="btn-outline btn-sm" id="btn-cand-parse" type="button" style="white-space:nowrap">
+                        <span class="material-symbols-rounded" style="font-size:1rem">link</span> 자동 입력
+                    </button>
+                </div>
+                <div id="cand-parse-status" style="display:none;margin-top:8px;font-size:0.82rem;padding:8px 12px;border-radius:var(--radius-sm)"></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;margin:10px 0;color:var(--text-tertiary);font-size:0.8rem">
+                <div style="flex:1;height:1px;background:var(--border)"></div>
+                <span>직접 입력</span>
+                <div style="flex:1;height:1px;background:var(--border)"></div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">장소명 *</label>
+                <input type="text" id="cand-title" placeholder="예: 도쿄타워, 을지로 맛집" />
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">카테고리</label>
+                    <select id="cand-category">${Object.entries(UI.categoryInfo).map(([k,v]) => `<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">주소</label>
+                    <input type="text" id="cand-address" placeholder="주소 또는 위치" />
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">메모</label>
+                <input type="text" id="cand-notes" placeholder="참고 사항" />
+            </div>
+        `, `
+            <button class="btn-outline" onclick="UI.closeModal()">취소</button>
+            <button class="btn-primary" id="btn-save-cand">추가</button>
+        `);
+
+        setTimeout(() => {
+            let _candPlaceData = null;
+            const searchInput = document.getElementById('cand-place-search');
+            const searchBtn = document.getElementById('btn-cand-search');
+            const searchResults = document.getElementById('cand-search-results');
+
+            function doCandSearch() {
+                const q = searchInput.value.trim();
+                if (!q) return;
+                if (typeof google === 'undefined' || !google.maps) { UI.showToast('Google Maps API를 로드할 수 없습니다', 'warning'); return; }
+                let svcDiv = document.getElementById('_item-places-svc');
+                if (!svcDiv) { svcDiv = document.createElement('div'); svcDiv.id = '_item-places-svc'; document.body.appendChild(svcDiv); }
+                const svc = new google.maps.places.PlacesService(svcDiv);
+                searchResults.style.display = 'block';
+                searchResults.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-tertiary);font-size:0.8rem">검색 중...</div>';
+                svc.textSearch({ query: q }, (results, status) => {
+                    if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
+                        searchResults.innerHTML = '';
+                        for (let i = 0; i < Math.min(results.length, 8); i++) {
+                            const p = results[i];
+                            const div = document.createElement('div');
+                            div.className = 'item-search-result';
+                            div.innerHTML = `<div class="item-search-result-name">${UI.escapeHtml(p.name)}</div>
+                                <div class="item-search-result-meta">${p.rating ? `⭐${p.rating}` : ''} ${UI.escapeHtml(p.formatted_address || '')}</div>`;
+                            div.addEventListener('click', () => {
+                                document.getElementById('cand-title').value = p.name || '';
+                                document.getElementById('cand-address').value = p.formatted_address || p.vicinity || '';
+                                const types = p.types || [];
+                                if (types.some(t => /restaurant|food|cafe|bakery|meal/.test(t))) document.getElementById('cand-category').value = 'food';
+                                else if (types.some(t => /lodging|hotel/.test(t))) document.getElementById('cand-category').value = 'accommodation';
+                                else if (types.some(t => /store|shop|mall/.test(t))) document.getElementById('cand-category').value = 'shopping';
+                                else if (types.some(t => /museum|art_gallery|amusement|zoo|aquarium/.test(t))) document.getElementById('cand-category').value = 'activity';
+                                const lat = p.geometry.location.lat(), lng = p.geometry.location.lng();
+                                _candPlaceData = { lat, lng, placeId: p.place_id, rating: p.rating || null, imageUrl: (p.photos && p.photos[0]) ? p.photos[0].getUrl({ maxWidth: 400 }) : '' };
+                                searchResults.style.display = 'none';
+                                searchInput.value = p.name;
+                                UI.showToast(`"${p.name}" 선택됨`, 'success');
+                            });
+                            searchResults.appendChild(div);
+                        }
+                    } else {
+                        searchResults.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-tertiary);font-size:0.8rem">검색 결과가 없습니다</div>';
+                    }
+                });
+            }
+
+            searchBtn.addEventListener('click', doCandSearch);
+            searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doCandSearch(); } });
+
+            // Google Maps link parsing
+            const gmapsInput = document.getElementById('cand-gmaps-link');
+            const parseBtn = document.getElementById('btn-cand-parse');
+            const statusEl = document.getElementById('cand-parse-status');
+
+            async function handleCandGmapsParse() {
+                const url = gmapsInput.value.trim();
+                if (!url) { UI.showToast('Google Maps 링크를 입력해주세요', 'warning'); return; }
+                const parsed = UI.parseGoogleMapsUrl(url);
+                if (!parsed) { statusEl.style.display = 'block'; statusEl.style.background = 'rgba(239,68,68,0.1)'; statusEl.style.color = 'var(--danger)'; statusEl.innerHTML = '⚠️ 유효한 Google Maps 링크가 아닙니다.'; return; }
+                if (parsed.title) document.getElementById('cand-title').value = parsed.title;
+                if (parsed.address) document.getElementById('cand-address').value = parsed.address;
+                if (parsed.lat && parsed.lng) {
+                    _candPlaceData = { lat: parsed.lat, lng: parsed.lng, placeId: parsed.placeId || null };
+                    const geo = await UI.reverseGeocode(parsed.lat, parsed.lng);
+                    if (geo) {
+                        if (!parsed.title && geo.name) document.getElementById('cand-title').value = geo.name;
+                        if (geo.address) document.getElementById('cand-address').value = geo.address;
+                    }
+                    statusEl.style.display = 'block'; statusEl.style.background = 'rgba(16,185,129,0.1)'; statusEl.style.color = 'var(--success)';
+                    statusEl.innerHTML = `✅ 장소 정보를 가져왔습니다!`;
+                } else if (parsed.title) {
+                    statusEl.style.display = 'block'; statusEl.style.background = 'rgba(16,185,129,0.1)'; statusEl.style.color = 'var(--success)';
+                    statusEl.innerHTML = `✅ "${UI.escapeHtml(parsed.title)}"`;
+                }
+            }
+            parseBtn.onclick = handleCandGmapsParse;
+            gmapsInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); handleCandGmapsParse(); } });
+            gmapsInput.addEventListener('paste', () => { setTimeout(handleCandGmapsParse, 100); });
+
+            // Save
+            document.getElementById('btn-save-cand').onclick = () => {
+                const title = document.getElementById('cand-title').value.trim();
+                if (!title) { UI.showToast('장소명을 입력해주세요', 'warning'); return; }
+                Store.addCandidate(trip.id, {
+                    title,
+                    category: document.getElementById('cand-category').value,
+                    address: document.getElementById('cand-address').value.trim(),
+                    notes: document.getElementById('cand-notes').value.trim(),
+                    lat: _candPlaceData?.lat || null,
+                    lng: _candPlaceData?.lng || null,
+                    placeId: _candPlaceData?.placeId || null,
+                    rating: _candPlaceData?.rating || null,
+                    imageUrl: _candPlaceData?.imageUrl || ''
+                });
+                UI.closeModal();
+                render();
+                Store.addActivity(trip.id, '후보 추가', `"${title}" 후보 추가`);
+                UI.showToast(`"${title}" 후보에 추가됨`, 'success');
+            };
+            searchInput.focus();
+        }, 50);
+    }
+
     return {
         render, addDay, removeDay,
         showAddItemModal, showEditItemModal,
         removeItem, toggleFavorite, addComment, editTimeInline,
         selectTravelMode, editTravelTime, moveItemToCandidate,
         addCandidateToDay, removeCandidateFromList,
-        initCandidatesPanel
+        showAddCandidateModal, initCandidatesPanel
     };
 })();
 
@@ -2556,12 +2719,10 @@ const Members = (() => {
                         <div class="member-stat-label">결제 금액</div>
                     </div>
                 </div>
-                <div style="margin-top:14px;display:flex;gap:8px;justify-content:center">
-                    ${isMe ? `<button class="btn-text btn-sm" onclick="Members.showEditModal('${member.id}')">이름 수정</button>` : ''}
-                    ${!isMe && member.role !== '관리자' ? `
-                        <button class="btn-text btn-sm" onclick="Members.showEditModal('${member.id}')">수정</button>
-                        <button class="btn-text btn-sm text-danger" onclick="Members.remove('${member.id}')">삭제</button>
-                    ` : ''}
+                <div style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+                    ${!isMe ? `<button class="btn-text btn-sm" onclick="Members.setAsMe('${member.id}')" title="나로 설정"><span class="material-symbols-rounded" style="font-size:1rem">person</span> 나로 설정</button>` : ''}
+                    <button class="btn-text btn-sm" onclick="Members.showEditModal('${member.id}')">수정</button>
+                    ${member.role !== '관리자' ? `<button class="btn-text btn-sm text-danger" onclick="Members.remove('${member.id}')">삭제</button>` : ''}
                 </div>
             </div>`;
     }
@@ -2634,7 +2795,15 @@ const Members = (() => {
         });
     }
 
-    return { render, showAddModal, showEditModal, remove };
+    function setAsMe(memberId) {
+        Store.setMyMemberId(memberId);
+        render();
+        const trip = Store.getCurrentTrip();
+        const member = trip ? trip.members.find(m => m.id === memberId) : null;
+        UI.showToast(`"${member ? member.name : ''}" 님으로 설정되었습니다`, 'success');
+    }
+
+    return { render, showAddModal, showEditModal, remove, setAsMe };
 })();
 
 // ========== 즐겨찾기 ==========

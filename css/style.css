@@ -98,7 +98,7 @@ input:focus, select:focus, textarea:focus {
     border-color: var(--primary);
     box-shadow: 0 0 0 3px var(--primary-bg);
 }
-textarea { resize: vertical; min-height: 80px; }
+textarea { resize: vertical; min-height: 60px; }
 select { cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M6 8L1 3h10z' fill='%2394A3B8'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px; }
 
 ::selection { background: var(--primary-light); color: white; }
@@ -2915,7 +2915,7 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     border-radius: var(--radius-xl);
     max-width: 600px;
     width: 100%;
-    max-height: 85vh;
+    max-height: 92vh;
     overflow-y: auto;
     box-shadow: var(--shadow-xl);
     animation: slideUp 0.3s ease;
@@ -2928,21 +2928,21 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 24px 28px 16px;
+    padding: 16px 24px 12px;
     border-bottom: 1px solid var(--border-light);
 }
 .modal-header h2 {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     font-weight: 700;
 }
 .modal-close {
     color: var(--text-tertiary);
 }
 .modal-body {
-    padding: 20px 28px;
+    padding: 14px 24px;
 }
 .modal-footer {
-    padding: 16px 28px 24px;
+    padding: 12px 24px 16px;
     display: flex;
     justify-content: flex-end;
     gap: 10px;
@@ -2951,19 +2951,19 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
 
 /* 폼 그룹 */
 .form-group {
-    margin-bottom: 18px;
+    margin-bottom: 12px;
 }
 .form-label {
     display: block;
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     font-weight: 600;
     color: var(--text-secondary);
-    margin-bottom: 6px;
+    margin-bottom: 4px;
 }
 .form-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 14px;
+    gap: 10px;
 }
 .form-hint {
     font-size: 0.75rem;
