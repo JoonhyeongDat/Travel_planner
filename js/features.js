@@ -2207,14 +2207,12 @@ const Members = (() => {
                 </div>
                 <div style="margin-top:14px;display:flex;gap:8px;justify-content:center">
                     ${isMe ? `<button class="btn-text btn-sm" onclick="Members.showEditModal('${member.id}')">이름 수정</button>` : ''}
-                    ${member.role !== '관리자' && !isMe ? `
+                    ${!isMe && member.role !== '관리자' ? `
                         <button class="btn-text btn-sm" onclick="Members.showEditModal('${member.id}')">수정</button>
                         <button class="btn-text btn-sm text-danger" onclick="Members.remove('${member.id}')">삭제</button>
                     ` : ''}
-                    ${member.role === '관리자' && isMe ? `<button class="btn-text btn-sm" onclick="Members.showEditModal('${member.id}')">이름 수정</button>` : ''}
                 </div>
             </div>`;
-    }
     }
 
     function showAddModal() {

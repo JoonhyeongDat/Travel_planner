@@ -49,6 +49,7 @@ const FirebaseSync = (() => {
         trip.journals = ensureArray(trip.journals);
         trip.favorites = ensureArray(trip.favorites);
         trip.candidates = ensureArray(trip.candidates);
+        trip.activityLog = ensureArray(trip.activityLog);
         // days 내부 items 배열 복원
         trip.days.forEach(day => {
             day.items = ensureArray(day.items);
