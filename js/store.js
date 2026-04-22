@@ -180,6 +180,10 @@ const Store = (() => {
     function save(data) {
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            // Firebase 실시간 동기화
+            if (typeof FirebaseSync !== 'undefined' && FirebaseSync.isConnected()) {
+                FirebaseSync.pushData(data);
+            }
         } catch (e) {
             console.error('데이터 저장 실패:', e);
         }
@@ -627,6 +631,16 @@ const Store = (() => {
         // 유틸리티
         generateId,
         save: () => save(_data),
+        // Firebase에서 원격 데이터 적용 (다른 사용자 변경)
+        applyRemoteData: (remoteData) => {
+            _data = { ...defaultData, ...remoteData };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(_data));
+        },
+        // Firebase 초기 데이터 로드 (로컬보다 원격 우선)
+        loadRemoteData: (remoteData) => {
+            _data = { ...defaultData, ...remoteData };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(_data));
+        },
         reset: () => {
             _data = { ...defaultData };
             save(_data);

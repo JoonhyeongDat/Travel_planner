@@ -18,6 +18,9 @@ const App = (() => {
             }, 600);
         }, 1400);
 
+        // Firebase 초기화 및 동기화
+        initFirebase();
+
         // 저장된 테마 복원
         const settings = Store.getSettings();
         if (settings.theme) {
@@ -40,6 +43,48 @@ const App = (() => {
 
         // 이벤트 바인딩
         bindEvents();
+    }
+
+    // ---- Firebase 초기화 ----
+    function initFirebase() {
+        if (typeof FirebaseSync === 'undefined') return;
+
+        const ok = FirebaseSync.init();
+        if (!ok) return;
+
+        // 서버에서 초기 데이터 가져오기
+        FirebaseSync.pullData().then(remoteData => {
+            if (remoteData && remoteData.trips && remoteData.trips.length > 0) {
+                // 원격 데이터가 있으면 로컬 데이터와 병합
+                const localData = Store.getData();
+                const localHasData = localData.trips && localData.trips.length > 0;
+
+                if (localHasData) {
+                    // 로컬 + 원격 여행 병합 (ID 중복 제거, 원격 우선)
+                    const mergedTrips = [...remoteData.trips];
+                    localData.trips.forEach(lt => {
+                        if (!mergedTrips.find(rt => rt.id === lt.id)) {
+                            mergedTrips.push(lt);
+                        }
+                    });
+                    remoteData.trips = mergedTrips;
+                }
+
+                Store.loadRemoteData(remoteData);
+                loadTripList();
+                updateDashboard();
+                renderCurrentPage();
+            }
+
+            // 실시간 리스너 시작
+            FirebaseSync.startListening((newData) => {
+                Store.applyRemoteData(newData);
+                loadTripList();
+                updateDashboard();
+                renderCurrentPage();
+                console.log('[Sync] 다른 사용자의 변경사항 반영 완료');
+            });
+        });
     }
 
     // ---- 이벤트 바인딩 ----
