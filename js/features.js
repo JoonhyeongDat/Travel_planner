@@ -37,16 +37,26 @@ const Itinerary = (() => {
 
     function renderDay(day, trip) {
         const dateStr = day.date ? UI.formatDate(day.date) : '';
-        const itemsHTML = day.items.length > 0
-            ? day.items.map((item, idx) => {
+        let itemsHTML = '';
+        if (day.items.length > 0) {
+            // 맨 앞에 + 버튼
+            itemsHTML += `<div class="item-insert-zone" onclick="Itinerary.showAddItemModal('${day.id}',0)">
+                <button class="item-insert-btn" title="여기에 일정 추가"><span class="material-symbols-rounded">add</span></button>
+            </div>`;
+            day.items.forEach((item, idx) => {
+                itemsHTML += renderItem(item, day.id);
                 const next = day.items[idx + 1];
-                let connector = '';
                 if (next) {
-                    connector = renderTravelConnector(item, next, day.id);
+                    itemsHTML += renderTravelConnector(item, next, day.id);
                 }
-                return renderItem(item, day.id) + connector;
-            }).join('')
-            : `<div class="empty-state-sm"><p>일정을 추가해보세요</p></div>`;
+                // 각 아이템 뒤에 + 버튼
+                itemsHTML += `<div class="item-insert-zone" onclick="Itinerary.showAddItemModal('${day.id}',${idx + 1})">
+                    <button class="item-insert-btn" title="여기에 일정 추가"><span class="material-symbols-rounded">add</span></button>
+                </div>`;
+            });
+        } else {
+            itemsHTML = `<div class="empty-state-sm"><p>일정을 추가해보세요</p></div>`;
+        }
 
         return `
             <div class="day-card" data-day-id="${day.id}">
@@ -96,8 +106,9 @@ const Itinerary = (() => {
                     <span class="material-symbols-rounded">drag_indicator</span>
                 </div>
                 <div class="item-time">
-                    <span class="item-time-start">${item.startTime || '--:--'}</span>
-                    ${item.endTime ? `<div class="item-time-divider"></div><span class="item-time-end">${item.endTime}</span>` : ''}
+                    <span class="item-time-start" onclick="Itinerary.editTimeInline(event,'${dayId}','${item.id}','start')">${item.startTime || '--:--'}</span>
+                    <div class="item-time-divider"></div>
+                    <span class="item-time-end" onclick="Itinerary.editTimeInline(event,'${dayId}','${item.id}','end')">${item.endTime || '--:--'}</span>
                 </div>
                 ${imageHTML}
                 <div class="item-content">
@@ -392,6 +403,45 @@ const Itinerary = (() => {
         }, 50);
     }
 
+    // 시간 인라인 수정
+    function editTimeInline(e, dayId, itemId, field) {
+        e.stopPropagation();
+        const span = e.target.closest('.item-time-start, .item-time-end');
+        if (!span || span.querySelector('input')) return;
+
+        const trip = Store.getCurrentTrip();
+        if (!trip) return;
+        const day = trip.days.find(d => d.id === dayId);
+        if (!day) return;
+        const item = day.items.find(i => i.id === itemId);
+        if (!item) return;
+
+        const currentVal = field === 'start' ? (item.startTime || '') : (item.endTime || '');
+        const input = document.createElement('input');
+        input.type = 'time';
+        input.className = 'item-time-input';
+        input.value = currentVal;
+
+        const originalText = span.textContent;
+        span.textContent = '';
+        span.appendChild(input);
+        input.focus();
+
+        function save() {
+            const newVal = input.value;
+            const updates = field === 'start' ? { startTime: newVal } : { endTime: newVal };
+            Store.updateItineraryItem(trip.id, dayId, itemId, updates);
+            span.textContent = newVal || '--:--';
+            input.remove();
+        }
+
+        input.addEventListener('blur', save);
+        input.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Enter') { ev.preventDefault(); save(); }
+            if (ev.key === 'Escape') { span.textContent = originalText; input.remove(); }
+        });
+    }
+
     function addDay() {
         const trip = Store.getCurrentTrip();
         if (!trip) {
@@ -416,7 +466,7 @@ const Itinerary = (() => {
         });
     }
 
-    function showAddItemModal(dayId) {
+    function showAddItemModal(dayId, insertIndex) {
         const trip = Store.getCurrentTrip();
         if (!trip) return;
 
@@ -681,7 +731,7 @@ const Itinerary = (() => {
 
                 const gmapsParsed = UI.parseGoogleMapsUrl(gmapsInput.value.trim());
 
-                Store.addItineraryItem(trip.id, dayId, {
+                const newItem = Store.addItineraryItem(trip.id, dayId, {
                     title,
                     category: document.getElementById('item-category').value,
                     startTime: document.getElementById('item-start-time').value,
@@ -694,6 +744,17 @@ const Itinerary = (() => {
                     lng: _searchPlaceData?.lng || gmapsParsed?.lng || null,
                     placeId: _searchPlaceData?.placeId || null
                 });
+
+                // insertIndex가 지정되면 해당 위치로 이동
+                if (typeof insertIndex === 'number' && newItem) {
+                    const day = trip.days.find(d => d.id === dayId);
+                    if (day && day.items.length > 1) {
+                        // 방금 추가된 아이템은 맨 뒤에 있으므로 원하는 위치로 이동
+                        const removed = day.items.pop();
+                        day.items.splice(insertIndex, 0, removed);
+                        Store.save();
+                    }
+                }
 
                 UI.closeModal();
                 render();
@@ -940,7 +1001,7 @@ const Itinerary = (() => {
     return {
         render, addDay, removeDay,
         showAddItemModal, showEditItemModal,
-        removeItem, toggleFavorite, addComment,
+        removeItem, toggleFavorite, addComment, editTimeInline,
         selectTravelMode, editTravelTime, moveItemToCandidate,
         addCandidateToDay, removeCandidateFromList,
         initCandidatesPanel

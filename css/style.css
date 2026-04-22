@@ -1179,6 +1179,13 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     font-size: 0.9rem;
     font-weight: 700;
     color: var(--primary);
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    transition: background var(--transition-fast);
+}
+.item-time-start:hover {
+    background: var(--primary-bg);
 }
 .item-time-divider {
     width: 2px;
@@ -1187,8 +1194,72 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     margin: 4px 0;
 }
 .item-time-end {
-    font-size: 0.78rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--primary);
+    opacity: 0.75;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    transition: background var(--transition-fast);
+}
+.item-time-end:hover {
+    background: var(--primary-bg);
+    opacity: 1;
+}
+.item-time-input {
+    width: 52px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--primary);
+    text-align: center;
+    border: 1px solid var(--primary-light);
+    border-radius: var(--radius-sm);
+    padding: 2px 4px;
+    background: var(--bg-primary);
+    outline: none;
+}
+
+/* 일정 삽입 버튼 */
+.item-insert-zone {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 0;
+    overflow: visible;
+    position: relative;
+    z-index: 1;
+    margin: -2px 0;
+    transition: height var(--transition-fast);
+}
+.item-insert-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px dashed var(--border);
+    background: var(--bg-primary);
     color: var(--text-tertiary);
+    cursor: pointer;
+    opacity: 0;
+    transform: scale(0.6);
+    transition: all var(--transition-fast);
+}
+.item-insert-btn .material-symbols-rounded {
+    font-size: 1rem;
+}
+.item-insert-zone:hover .item-insert-btn,
+.day-items:hover .item-insert-zone .item-insert-btn {
+    opacity: 1;
+    transform: scale(1);
+}
+.item-insert-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: var(--primary-bg);
+    transform: scale(1.15);
 }
 
 .item-image {
