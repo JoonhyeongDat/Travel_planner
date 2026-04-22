@@ -320,6 +320,8 @@ const Itinerary = (() => {
         }
         results.selectedMode = shortest;
         Store.updateItineraryItem(trip.id, dayId, itemId, { travelInfo: results });
+        // 다음 일정 시작시간 자동 계산
+        autoCalcNextStartTime(dayId, itemId);
         render();
     }
 
@@ -395,12 +397,62 @@ const Itinerary = (() => {
                     }
                 });
                 Store.updateItineraryItem(trip.id, dayId, itemId, { travelInfo: newInfo });
+                // 다음 일정 시작시간 자동 계산
+                autoCalcNextStartTime(dayId, itemId);
                 _fetchedPairs.clear();
                 UI.closeModal();
                 render();
                 UI.showToast('이동 시간이 수정되었습니다', 'success');
             };
         }, 50);
+    }
+
+    // 종료시간 + 이동시간 → 다음 일정 시작시간 자동 계산
+    function autoCalcNextStartTime(dayId, itemId) {
+        const trip = Store.getCurrentTrip();
+        if (!trip) return;
+        const day = trip.days.find(d => d.id === dayId);
+        if (!day) return;
+        const idx = day.items.findIndex(i => i.id === itemId);
+        if (idx === -1 || idx >= day.items.length - 1) return;
+
+        const item = day.items[idx];
+        const nextItem = day.items[idx + 1];
+        if (!item.endTime) return;
+
+        // 이동시간 (분) 계산
+        let travelMinutes = 0;
+        const info = item.travelInfo;
+        if (info && !info.noRoute) {
+            const mode = info.selectedMode;
+            const modeData = mode && info[mode];
+            if (modeData) {
+                if (modeData.durationValue) {
+                    travelMinutes = Math.ceil(modeData.durationValue / 60);
+                } else if (modeData.duration) {
+                    // "시간 분" 형식 파싱
+                    const hMatch = modeData.duration.match(/(\d+)\s*시간/);
+                    const mMatch = modeData.duration.match(/(\d+)\s*분/);
+                    travelMinutes = (hMatch ? parseInt(hMatch[1]) * 60 : 0) + (mMatch ? parseInt(mMatch[1]) : 0);
+                    if (travelMinutes === 0) {
+                        // "15 min" / "1 hour 20 mins" 영어 형식
+                        const hE = modeData.duration.match(/(\d+)\s*hour/);
+                        const mE = modeData.duration.match(/(\d+)\s*min/);
+                        travelMinutes = (hE ? parseInt(hE[1]) * 60 : 0) + (mE ? parseInt(mE[1]) : 0);
+                    }
+                }
+            }
+        }
+
+        // 시간 계산
+        const [h, m] = item.endTime.split(':').map(Number);
+        if (isNaN(h) || isNaN(m)) return;
+        const totalMin = h * 60 + m + travelMinutes;
+        const newH = Math.floor(totalMin / 60) % 24;
+        const newM = totalMin % 60;
+        const newStart = `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
+
+        Store.updateItineraryItem(trip.id, dayId, nextItem.id, { startTime: newStart });
     }
 
     // 시간 인라인 수정
@@ -433,6 +485,11 @@ const Itinerary = (() => {
             Store.updateItineraryItem(trip.id, dayId, itemId, updates);
             span.textContent = newVal || '--:--';
             input.remove();
+            // 종료시간 변경 시 다음 일정 시작시간 자동 계산
+            if (field === 'end' && newVal) {
+                autoCalcNextStartTime(dayId, itemId);
+                render();
+            }
         }
 
         input.addEventListener('blur', save);
