@@ -1398,6 +1398,29 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     font-size: 1.2rem;
 }
 
+.travel-edit-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-tertiary);
+    padding: 2px;
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+    opacity: 0;
+    display: flex;
+    align-items: center;
+}
+.travel-edit-btn .material-symbols-rounded {
+    font-size: 0.85rem;
+}
+.travel-connector:hover .travel-edit-btn {
+    opacity: 1;
+}
+.travel-edit-btn:hover {
+    color: var(--primary);
+    background: var(--primary-bg);
+}
+
 /* --- 예약 관리 --- */
 .reservations-header {
     display: flex;

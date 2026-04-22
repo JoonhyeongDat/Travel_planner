@@ -583,6 +583,18 @@ const App = (() => {
                     theme
                 );
 
+                // 날짜 기반 일차 자동 생성
+                const startDate = document.getElementById('new-trip-start').value;
+                const endDate = document.getElementById('new-trip-end').value;
+                if (startDate && endDate) {
+                    const start = new Date(startDate);
+                    const end = new Date(endDate);
+                    const diffDays = Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1;
+                    for (let i = 0; i < diffDays && i < 30; i++) {
+                        Store.addDay(trip.id);
+                    }
+                }
+
                 // 테마 적용
                 setTheme(theme);
 

@@ -181,6 +181,9 @@ const Itinerary = (() => {
         return `<div class="travel-connector" data-pair="${pairKey}">
             <div class="travel-connector-line"></div>
             <div class="travel-modes">${modesHTML}</div>
+            <button class="travel-edit-btn" onclick="Itinerary.editTravelTime('${dayId}','${fromItem.id}')" title="이동 시간 직접 수정">
+                <span class="material-symbols-rounded">edit</span>
+            </button>
         </div>`;
     }
 
@@ -269,6 +272,71 @@ const Itinerary = (() => {
         });
         _fetchedPairs.clear();
         render();
+    }
+
+    // 이동 시간 직접 수정
+    function editTravelTime(dayId, itemId) {
+        const trip = Store.getCurrentTrip();
+        if (!trip) return;
+        const day = trip.days.find(d => d.id === dayId);
+        if (!day) return;
+        const item = day.items.find(i => i.id === itemId);
+        if (!item) return;
+
+        const info = item.travelInfo || {};
+        const modes = [
+            { key: 'walking', icon: '🚶', label: '도보' },
+            { key: 'driving', icon: '🚗', label: '차량' },
+            { key: 'transit', icon: '🚇', label: '대중교통' }
+        ];
+
+        const modeInputs = modes.map(m => {
+            const data = info[m.key];
+            return `<div class="form-row" style="align-items:center;gap:8px;margin-bottom:8px">
+                <span style="width:80px;font-weight:500">${m.icon} ${m.label}</span>
+                <input type="text" id="edit-travel-${m.key}-dur" value="${data ? data.duration : ''}" placeholder="예: 15분" style="flex:1" />
+                <input type="text" id="edit-travel-${m.key}-dist" value="${data ? data.distance : ''}" placeholder="거리" style="flex:1" />
+            </div>`;
+        }).join('');
+
+        UI.showModal('이동 시간 수정', `
+            <p style="margin-bottom:12px;color:var(--text-secondary);font-size:0.85rem">각 이동수단별 소요 시간과 거리를 직접 입력하세요.</p>
+            ${modeInputs}
+            <div class="form-group" style="margin-top:8px">
+                <label class="form-label">기본 이동수단</label>
+                <select id="edit-travel-selected">
+                    <option value="">선택 안함</option>
+                    <option value="walking" ${info.selectedMode === 'walking' ? 'selected' : ''}>🚶 도보</option>
+                    <option value="transit" ${info.selectedMode === 'transit' ? 'selected' : ''}>🚇 대중교통</option>
+                    <option value="driving" ${info.selectedMode === 'driving' ? 'selected' : ''}>🚗 차량</option>
+                </select>
+            </div>
+        `, `
+            <button class="btn-outline" onclick="UI.closeModal()">취소</button>
+            <button class="btn-primary" id="btn-save-travel">저장</button>
+        `);
+
+        setTimeout(() => {
+            document.getElementById('btn-save-travel').onclick = () => {
+                const newInfo = { selectedMode: document.getElementById('edit-travel-selected').value };
+                modes.forEach(m => {
+                    const dur = document.getElementById(`edit-travel-${m.key}-dur`).value.trim();
+                    const dist = document.getElementById(`edit-travel-${m.key}-dist`).value.trim();
+                    if (dur) {
+                        newInfo[m.key] = {
+                            duration: dur,
+                            durationValue: info[m.key]?.durationValue || 0,
+                            distance: dist || ''
+                        };
+                    }
+                });
+                Store.updateItineraryItem(trip.id, dayId, itemId, { travelInfo: newInfo });
+                _fetchedPairs.clear();
+                UI.closeModal();
+                render();
+                UI.showToast('이동 시간이 수정되었습니다', 'success');
+            };
+        }, 50);
     }
 
     function addDay() {
@@ -367,21 +435,6 @@ const Itinerary = (() => {
             <div class="form-group">
                 <label class="form-label">메모</label>
                 <textarea id="item-notes" placeholder="참고 사항, 팁 등을 적어주세요"></textarea>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">이동 수단</label>
-                    <select id="item-travel-mode">
-                        <option value="">선택 안함</option>
-                        <option value="walking">🚶 도보</option>
-                        <option value="transit">🚇 대중교통</option>
-                        <option value="driving">🚗 차량</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">이동 시간</label>
-                    <input type="text" id="item-travel-duration" placeholder="예: 15분" />
-                </div>
             </div>
             <div class="form-group">
                 <label class="form-label">이미지 URL (선택)</label>
@@ -584,8 +637,6 @@ const Itinerary = (() => {
                     notes: document.getElementById('item-notes').value.trim(),
                     cost: Number(document.getElementById('item-cost').value) || 0,
                     imageUrl,
-                    travelMode: document.getElementById('item-travel-mode').value,
-                    travelDuration: document.getElementById('item-travel-duration').value.trim(),
                     lat: _searchPlaceData?.lat || gmapsParsed?.lat || null,
                     lng: _searchPlaceData?.lng || gmapsParsed?.lng || null,
                     placeId: _searchPlaceData?.placeId || null
@@ -645,21 +696,6 @@ const Itinerary = (() => {
                 <label class="form-label">메모</label>
                 <textarea id="item-notes">${UI.escapeHtml(item.notes)}</textarea>
             </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">이동 수단</label>
-                    <select id="item-travel-mode">
-                        <option value="" ${!item.travelMode ? 'selected' : ''}>선택 안함</option>
-                        <option value="walking" ${item.travelMode === 'walking' ? 'selected' : ''}>🚶 도보</option>
-                        <option value="transit" ${item.travelMode === 'transit' ? 'selected' : ''}>🚇 대중교통</option>
-                        <option value="driving" ${item.travelMode === 'driving' ? 'selected' : ''}>🚗 차량</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">이동 시간</label>
-                    <input type="text" id="item-travel-duration" value="${UI.escapeHtml(item.travelDuration)}" />
-                </div>
-            </div>
             <div class="form-group">
                 <label class="form-label">이미지 URL</label>
                 <input type="text" id="item-image" value="${UI.escapeHtml(item.imageUrl)}" />
@@ -684,9 +720,7 @@ const Itinerary = (() => {
                     address: document.getElementById('item-address').value.trim(),
                     notes: document.getElementById('item-notes').value.trim(),
                     cost: Number(document.getElementById('item-cost').value) || 0,
-                    imageUrl: document.getElementById('item-image').value.trim(),
-                    travelMode: document.getElementById('item-travel-mode').value,
-                    travelDuration: document.getElementById('item-travel-duration').value.trim()
+                    imageUrl: document.getElementById('item-image').value.trim()
                 });
                 UI.closeModal();
                 render();
@@ -854,7 +888,7 @@ const Itinerary = (() => {
         render, addDay, removeDay,
         showAddItemModal, showEditItemModal,
         removeItem, toggleFavorite, addComment,
-        selectTravelMode, moveItemToCandidate,
+        selectTravelMode, editTravelTime, moveItemToCandidate,
         addCandidateToDay, removeCandidateFromList,
         initCandidatesPanel
     };
