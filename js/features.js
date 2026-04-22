@@ -1365,12 +1365,65 @@ const Reservations = (() => {
 // ========== 예산 / 정산 ==========
 const Budget = (() => {
     let currentTab = 'expenses';
+    let _showReservations = true;
+    let _showEstimated = false;
+
+    // 예약 → 지출 카테고리 매핑
+    const _resTypeToCat = {
+        flight: 'transport', train: 'transport', transport: 'transport',
+        hotel: 'accommodation', restaurant: 'food',
+        ticket: 'activity', other: 'etc'
+    };
+
+    function getVirtualExpenses(trip) {
+        const items = [];
+        // 확정 예약 (비용 있는 것만)
+        if (_showReservations) {
+            (trip.reservations || []).forEach(res => {
+                if (res.status === 'confirmed' && res.cost > 0) {
+                    items.push({
+                        id: 'res_' + res.id,
+                        name: res.name,
+                        amount: Number(res.cost) || 0,
+                        category: _resTypeToCat[res.type] || 'etc',
+                        date: res.date || '',
+                        _source: 'reservation',
+                        _sourceIcon: '📋',
+                        _sourceLabel: '예약'
+                    });
+                }
+            });
+        }
+        // 일정 예상 비용
+        if (_showEstimated) {
+            (trip.days || []).forEach(day => {
+                (day.items || []).forEach(item => {
+                    if (item.cost > 0) {
+                        items.push({
+                            id: 'est_' + item.id,
+                            name: item.title,
+                            amount: Number(item.cost) || 0,
+                            category: _resTypeToCat[item.category] || (UI.expenseCategoryInfo[item.category] ? item.category : 'etc'),
+                            date: day.date || '',
+                            _source: 'estimate',
+                            _sourceIcon: '📍',
+                            _sourceLabel: `Day ${day.dayNumber} 예상`
+                        });
+                    }
+                });
+            });
+        }
+        return items;
+    }
 
     function render() {
         const trip = Store.getCurrentTrip();
         if (!trip) return;
 
-        const totalSpent = Store.getTotalExpenses(trip.id);
+        const realTotal = Store.getTotalExpenses(trip.id);
+        const virtualItems = getVirtualExpenses(trip);
+        const virtualTotal = virtualItems.reduce((s, v) => s + v.amount, 0);
+        const totalSpent = realTotal + virtualTotal;
         const totalBudget = trip.totalBudget || 0;
         const remaining = totalBudget - totalSpent;
         const percentage = totalBudget > 0 ? Math.min((totalSpent / totalBudget) * 100, 100) : 0;
@@ -1394,8 +1447,23 @@ const Budget = (() => {
         if (!trip) return;
 
         if (currentTab === 'expenses') {
-            if (trip.expenses.length === 0) {
-                container.innerHTML = `
+            const virtualItems = getVirtualExpenses(trip);
+            const allItems = [...trip.expenses.map(e => ({ ...e, _source: 'manual' })), ...virtualItems];
+
+            const togglesHTML = `
+                <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+                    <label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;cursor:pointer">
+                        <input type="checkbox" ${_showReservations ? 'checked' : ''} onchange="Budget.toggleReservations(this.checked)" />
+                        <span>📋 확정 예약 포함</span>
+                    </label>
+                    <label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;cursor:pointer">
+                        <input type="checkbox" ${_showEstimated ? 'checked' : ''} onchange="Budget.toggleEstimated(this.checked)" />
+                        <span>📍 예상 비용 포함</span>
+                    </label>
+                </div>`;
+
+            if (allItems.length === 0) {
+                container.innerHTML = togglesHTML + `
                     <div class="empty-state">
                         <div class="empty-icon">💰</div>
                         <h3>지출 내역이 없습니다</h3>
@@ -1407,8 +1475,8 @@ const Budget = (() => {
                 return;
             }
 
-            const sorted = [...trip.expenses].sort((a, b) => new Date(b.date) - new Date(a.date));
-            container.innerHTML = `<div class="expense-list">${sorted.map(renderExpenseItem).join('')}</div>`;
+            const sorted = allItems.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+            container.innerHTML = togglesHTML + `<div class="expense-list">${sorted.map(renderExpenseItem).join('')}</div>`;
         } else if (currentTab === 'category') {
             renderCategoryView(trip, container);
         } else if (currentTab === 'settlement') {
@@ -1419,16 +1487,16 @@ const Budget = (() => {
     function renderExpenseItem(exp) {
         const catInfo = UI.expenseCategoryInfo[exp.category] || UI.expenseCategoryInfo.etc;
         const trip = Store.getCurrentTrip();
-        const payer = trip ? trip.members.find(m => m.id === exp.paidBy) : null;
+        const payer = (trip && exp.paidBy) ? trip.members.find(m => m.id === exp.paidBy) : null;
+        const isVirtual = exp._source === 'reservation' || exp._source === 'estimate';
 
         return `
-            <div class="expense-item">
+            <div class="expense-item" ${isVirtual ? 'style="opacity:0.75;border-left:3px solid var(--primary-light);padding-left:12px"' : ''}>
                 <span class="expense-icon">${catInfo.icon}</span>
                 <div class="expense-info">
-                    <div class="expense-name">${UI.escapeHtml(exp.name)}</div>
+                    <div class="expense-name">${UI.escapeHtml(exp.name)}${isVirtual ? ` <span style="font-size:0.7rem;padding:1px 6px;border-radius:10px;background:var(--primary-bg);color:var(--primary);font-weight:600">${exp._sourceIcon} ${exp._sourceLabel}</span>` : ''}</div>
                     <div class="expense-detail-line">
-                        <span>${UI.formatDate(exp.date)}</span>
-                        <span>·</span>
+                        ${exp.date ? `<span>${UI.formatDate(exp.date)}</span><span>·</span>` : ''}
                         <span>${catInfo.label}</span>
                     </div>
                 </div>
@@ -1436,6 +1504,7 @@ const Budget = (() => {
                     <div class="expense-amount">${UI.formatCurrency(exp.amount)}</div>
                     ${payer ? `<div class="expense-payer">${UI.escapeHtml(payer.name)} 결제</div>` : ''}
                 </div>
+                ${!isVirtual ? `
                 <div style="display:flex;gap:2px">
                     <button class="btn-icon btn-sm" onclick="Budget.showEditModal('${exp.id}')" title="수정">
                         <span class="material-symbols-rounded">edit</span>
@@ -1443,12 +1512,18 @@ const Budget = (() => {
                     <button class="btn-icon btn-sm" onclick="Budget.remove('${exp.id}')" title="삭제">
                         <span class="material-symbols-rounded">delete_outline</span>
                     </button>
-                </div>
+                </div>` : ''}
             </div>`;
     }
 
     function renderCategoryView(trip, container) {
         const cats = Store.getExpensesByCategory(trip.id);
+        // 가상 항목도 카테고리에 포함
+        const virtualItems = getVirtualExpenses(trip);
+        virtualItems.forEach(v => {
+            if (!cats[v.category]) cats[v.category] = 0;
+            cats[v.category] += v.amount;
+        });
         const total = Object.values(cats).reduce((s, v) => s + v, 0) || 1;
         const colors = ['#4F46E5', '#059669', '#D97706', '#DC2626', '#EC4899', '#0891B2', '#7C3AED', '#6B7280'];
 
@@ -1746,7 +1821,17 @@ const Budget = (() => {
         }, 50);
     }
 
-    return { render, showAddModal, showEditModal, remove, setTab, showEditBudgetModal };
+    function toggleReservations(val) {
+        _showReservations = val;
+        render();
+    }
+
+    function toggleEstimated(val) {
+        _showEstimated = val;
+        render();
+    }
+
+    return { render, showAddModal, showEditModal, remove, setTab, showEditBudgetModal, toggleReservations, toggleEstimated };
 })();
 
 // ========== 체크리스트 ==========
