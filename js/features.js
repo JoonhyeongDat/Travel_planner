@@ -1394,6 +1394,23 @@ const Budget = (() => {
                 }
             });
         }
+        // 대기중 예약 (예상 비용 포함 시)
+        if (_showEstimated) {
+            (trip.reservations || []).forEach(res => {
+                if (res.status === 'pending' && res.cost > 0) {
+                    items.push({
+                        id: 'res_pending_' + res.id,
+                        name: res.name,
+                        amount: Number(res.cost) || 0,
+                        category: _resTypeToCat[res.type] || 'etc',
+                        date: res.date || '',
+                        _source: 'estimate',
+                        _sourceIcon: '⏳',
+                        _sourceLabel: '대기중 예약'
+                    });
+                }
+            });
+        }
         // 일정 예상 비용
         if (_showEstimated) {
             (trip.days || []).forEach(day => {
