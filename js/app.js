@@ -315,6 +315,19 @@ const App = (() => {
             weather: ['날씨', '여행지 날씨 확인']
         };
 
+        const pageIcons = {
+            dashboard: 'dashboard',
+            itinerary: 'calendar_month',
+            reservations: 'confirmation_number',
+            budget: 'account_balance_wallet',
+            map: 'map',
+            checklist: 'checklist',
+            journal: 'edit_note',
+            members: 'group',
+            favorites: 'favorite',
+            weather: 'cloud'
+        };
+
         const helpTexts = {
             dashboard: '• 다가오는 일정, 예산, 준비물 현황을 한눈에 확인\n• 준비물 체크를 바로 토글 가능\n• D-Day 카운트다운 표시\n• 각 섹션 클릭 시 해당 페이지로 이동',
             itinerary: '• 일차별 일정을 추가/수정/삭제\n• Google Maps 장소 검색 또는 링크 붙여넣기로 자동 입력\n• 드래그 앤 드롭으로 일정 순서 변경\n• 후보 장소를 드래그하여 원하는 위치에 삽입\n• 시작/종료 시간 클릭으로 인라인 수정\n• 이동 수단별 소요 시간 자동 계산\n• "+" 버튼으로 원하는 위치에 일정 추가',
@@ -332,24 +345,31 @@ const App = (() => {
         document.getElementById('page-title').textContent = title;
         document.getElementById('page-subtitle').textContent = subtitle;
 
-        // 도움말 아이콘
+        // 페이지 아이콘
+        const iconEl = document.getElementById('page-icon');
+        if (iconEl) iconEl.textContent = pageIcons[page] || 'article';
+
+        // 도움말 아이콘 — title-row 안에 배치
+        const titleRow = document.querySelector('.page-title-row');
         let helpBtn = document.getElementById('page-help-btn');
-        if (!helpBtn) {
+        if (!helpBtn && titleRow) {
             helpBtn = document.createElement('button');
             helpBtn.id = 'page-help-btn';
             helpBtn.className = 'btn-icon page-help-btn';
             helpBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:1.1rem">help_outline</span>';
-            document.getElementById('page-title').parentElement.appendChild(helpBtn);
+            titleRow.appendChild(helpBtn);
         }
-        const helpText = helpTexts[page] || '';
-        helpBtn.setAttribute('data-help', helpText);
-        helpBtn.onmouseenter = showPageHelp;
-        helpBtn.onmouseleave = hidePageHelp;
-        helpBtn.onclick = (e) => {
-            const existing = document.getElementById('page-help-tooltip');
-            if (existing) { existing.remove(); return; }
-            showPageHelp.call(helpBtn, e);
-        };
+        if (helpBtn) {
+            const helpText = helpTexts[page] || '';
+            helpBtn.setAttribute('data-help', helpText);
+            helpBtn.onmouseenter = showPageHelp;
+            helpBtn.onmouseleave = hidePageHelp;
+            helpBtn.onclick = (e) => {
+                const existing = document.getElementById('page-help-tooltip');
+                if (existing) { existing.remove(); return; }
+                showPageHelp.call(helpBtn, e);
+            };
+        }
     }
 
     function showPageHelp(e) {
