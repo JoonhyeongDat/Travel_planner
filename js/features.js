@@ -1508,7 +1508,7 @@ const Budget = (() => {
         const isVirtual = exp._source === 'reservation' || exp._source === 'estimate';
 
         return `
-            <div class="expense-item" ${isVirtual ? 'style="opacity:0.75;border-left:3px solid var(--primary-light);padding-left:12px"' : ''}>
+            <div class="expense-item ${!isVirtual ? 'expense-item-editable' : ''}" ${isVirtual ? 'style="opacity:0.75;border-left:3px solid var(--primary-light);padding-left:12px"' : `onclick="Budget.showEditModal('${exp.id}')"`}>
                 <span class="expense-icon">${catInfo.icon}</span>
                 <div class="expense-info">
                     <div class="expense-name">${UI.escapeHtml(exp.name)}${isVirtual ? ` <span style="font-size:0.7rem;padding:1px 6px;border-radius:10px;background:var(--primary-bg);color:var(--primary);font-weight:600">${exp._sourceIcon} ${exp._sourceLabel}</span>` : ''}</div>
@@ -1522,14 +1522,9 @@ const Budget = (() => {
                     ${payer ? `<div class="expense-payer">${UI.escapeHtml(payer.name)} 결제</div>` : ''}
                 </div>
                 ${!isVirtual ? `
-                <div style="display:flex;gap:2px">
-                    <button class="btn-icon btn-sm" onclick="Budget.showEditModal('${exp.id}')" title="수정">
-                        <span class="material-symbols-rounded">edit</span>
-                    </button>
-                    <button class="btn-icon btn-sm" onclick="Budget.remove('${exp.id}')" title="삭제">
-                        <span class="material-symbols-rounded">delete_outline</span>
-                    </button>
-                </div>` : ''}
+                <button class="btn-icon btn-sm" onclick="event.stopPropagation();Budget.remove('${exp.id}')" title="삭제">
+                    <span class="material-symbols-rounded">delete_outline</span>
+                </button>` : ''}
             </div>`;
     }
 
@@ -1892,8 +1887,11 @@ const Checklist = (() => {
                 <div class="checklist-checkbox ${item.checked ? 'checked' : ''}" onclick="Checklist.toggleItem('${cat.id}','${item.id}')">
                     ${item.checked ? '<span class="material-symbols-rounded">check</span>' : ''}
                 </div>
-                <span class="checklist-item-text">${UI.escapeHtml(item.text)}</span>
+                <span class="checklist-item-text" onclick="Checklist.showEditItemModal('${cat.id}','${item.id}')" style="cursor:pointer">${UI.escapeHtml(item.text)}</span>
                 ${item.assignee ? `<span class="checklist-item-assignee">${UI.escapeHtml(item.assignee)}</span>` : ''}
+                <button class="btn-icon btn-sm" onclick="Checklist.showEditItemModal('${cat.id}','${item.id}')" style="opacity:0.5" title="수정">
+                    <span class="material-symbols-rounded" style="font-size:1rem">edit</span>
+                </button>
                 <button class="btn-icon btn-sm" onclick="Checklist.removeItem('${cat.id}','${item.id}')" style="opacity:0.5" title="삭제">
                     <span class="material-symbols-rounded" style="font-size:1rem">close</span>
                 </button>
@@ -1941,8 +1939,11 @@ const Checklist = (() => {
                     <div class="checklist-checkbox ${item.checked ? 'checked' : ''}" onclick="Checklist.toggleItem('${item.catId}','${item.id}')">
                         ${item.checked ? '<span class="material-symbols-rounded">check</span>' : ''}
                     </div>
-                    <span class="checklist-item-text">${UI.escapeHtml(item.text)}</span>
+                    <span class="checklist-item-text" onclick="Checklist.showEditItemModal('${item.catId}','${item.id}')" style="cursor:pointer">${UI.escapeHtml(item.text)}</span>
                     <span class="checklist-item-cat" style="font-size:0.75rem;opacity:0.6">${item.catIcon} ${UI.escapeHtml(item.catName)}</span>
+                    <button class="btn-icon btn-sm" onclick="Checklist.showEditItemModal('${item.catId}','${item.id}')" style="opacity:0.5" title="수정">
+                        <span class="material-symbols-rounded" style="font-size:1rem">edit</span>
+                    </button>
                     <button class="btn-icon btn-sm" onclick="Checklist.removeItem('${item.catId}','${item.id}')" style="opacity:0.5" title="삭제">
                         <span class="material-symbols-rounded" style="font-size:1rem">close</span>
                     </button>
@@ -2107,9 +2108,48 @@ const Checklist = (() => {
         showAddCategoryModal();
     }
 
+    function showEditItemModal(catId, itemId) {
+        const trip = Store.getCurrentTrip();
+        if (!trip) return;
+        const cat = trip.checklist.find(c => c.id === catId);
+        if (!cat) return;
+        const item = cat.items.find(i => i.id === itemId);
+        if (!item) return;
+
+        const memberOptions = trip.members.map(m =>
+            `<option value="${m.name}" ${item.assignee === m.name ? 'selected' : ''}>${UI.escapeHtml(m.name)}</option>`
+        ).join('');
+
+        UI.showModal('항목 수정', `
+            <div class="form-group">
+                <label class="form-label">항목명 *</label>
+                <input type="text" id="cl-edit-text" value="${UI.escapeHtml(item.text)}" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">담당자 (선택)</label>
+                <select id="cl-edit-assignee"><option value="">전체</option>${memberOptions}</select>
+            </div>
+        `, `
+            <button class="btn-outline" onclick="UI.closeModal()">취소</button>
+            <button class="btn-primary" id="btn-save-cl-edit">저장</button>
+        `);
+
+        setTimeout(() => {
+            document.getElementById('btn-save-cl-edit').onclick = () => {
+                const text = document.getElementById('cl-edit-text').value.trim();
+                if (!text) { UI.showToast('항목명을 입력해주세요', 'warning'); return; }
+                Store.updateChecklistItem(trip.id, catId, itemId, text, document.getElementById('cl-edit-assignee').value);
+                UI.closeModal();
+                render();
+                UI.showToast('항목이 수정되었습니다', 'success');
+            };
+            document.getElementById('cl-edit-text').focus();
+        }, 50);
+    }
+
     return {
         render, toggleItem, removeItem, removeCategory,
-        showAddCategoryModal, showAddItemModal, showAddModal, setViewMode
+        showAddCategoryModal, showAddItemModal, showAddModal, showEditItemModal, setViewMode
     };
 })();
 

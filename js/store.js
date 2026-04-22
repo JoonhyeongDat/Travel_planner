@@ -526,6 +526,18 @@ const Store = (() => {
                 save(_data);
             }
         },
+        updateChecklistItem: (tripId, catId, itemId, text, assignee) => {
+            const trip = _data.trips.find(t => t.id === tripId);
+            if (!trip) return;
+            const cat = trip.checklist.find(c => c.id === catId);
+            if (!cat) return;
+            const item = cat.items.find(i => i.id === itemId);
+            if (item) {
+                item.text = text;
+                item.assignee = assignee || '';
+                save(_data);
+            }
+        },
         removeChecklistItem: (tripId, catId, itemId) => {
             const trip = _data.trips.find(t => t.id === tripId);
             if (!trip) return;

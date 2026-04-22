@@ -1771,6 +1771,12 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     border-color: var(--primary-light);
     box-shadow: var(--shadow-sm);
 }
+.expense-item-editable {
+    cursor: pointer;
+}
+.expense-item-editable:hover {
+    background: var(--bg-hover);
+}
 .expense-icon {
     font-size: 1.5rem;
 }
