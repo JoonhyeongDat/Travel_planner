@@ -145,6 +145,9 @@ const Itinerary = (() => {
                 <div class="travel-modes">
                     <span class="travel-loading-text">이동 시간 계산 중...</span>
                 </div>
+                <button class="travel-edit-btn" style="opacity:1" onclick="Itinerary.editTravelTime('${dayId}','${fromItem.id}')" title="직접 입력">
+                    <span class="material-symbols-rounded">edit</span>
+                </button>
             </div>`;
         }
 
@@ -207,7 +210,11 @@ const Itinerary = (() => {
         if (_fetchedPairs.has(pairKey)) return;
         _fetchedPairs.add(pairKey);
 
-        if (typeof google === 'undefined' || !google.maps) return;
+        if (typeof google === 'undefined' || !google.maps) {
+            // Google Maps 미로드 시 noRoute 처리
+            saveTravelResults({}, dayId, fromItem.id);
+            return;
+        }
 
         const service = new google.maps.DirectionsService();
         const origin = { lat: fromItem.lat, lng: fromItem.lng };
@@ -215,43 +222,70 @@ const Itinerary = (() => {
         const results = {};
         let done = 0;
         const total = 3;
+        let saved = false;
 
-        // WALKING & DRIVING — 단순 요청
+        function checkDone() {
+            if (saved) return;
+            done++;
+            if (done === total) {
+                saved = true;
+                saveTravelResults(results, dayId, fromItem.id);
+            }
+        }
+
+        // 10초 타임아웃: API 응답 없으면 강제 noRoute
+        setTimeout(() => {
+            if (!saved) {
+                saved = true;
+                console.warn('[TravelTime] 타임아웃 - 경로 탐색 실패:', pairKey);
+                saveTravelResults(results, dayId, fromItem.id);
+            }
+        }, 10000);
+
+        // WALKING & DRIVING
         ['WALKING', 'DRIVING'].forEach(mode => {
+            try {
+                service.route({
+                    origin, destination: dest,
+                    travelMode: google.maps.TravelMode[mode]
+                }, (res, status) => {
+                    if (status === 'OK' && res && res.routes && res.routes[0]) {
+                        const leg = res.routes[0].legs[0];
+                        results[mode.toLowerCase()] = {
+                            duration: leg.duration.text,
+                            durationValue: leg.duration.value,
+                            distance: leg.distance.text
+                        };
+                    }
+                    checkDone();
+                });
+            } catch (e) {
+                console.warn('[TravelTime]', mode, '오류:', e);
+                checkDone();
+            }
+        });
+
+        // TRANSIT
+        try {
             service.route({
                 origin, destination: dest,
-                travelMode: google.maps.TravelMode[mode]
+                travelMode: google.maps.TravelMode.TRANSIT,
+                transitOptions: { departureTime: new Date() }
             }, (res, status) => {
-                if (status === 'OK' && res.routes[0]) {
+                if (status === 'OK' && res && res.routes && res.routes[0]) {
                     const leg = res.routes[0].legs[0];
-                    results[mode.toLowerCase()] = {
+                    results.transit = {
                         duration: leg.duration.text,
                         durationValue: leg.duration.value,
                         distance: leg.distance.text
                     };
                 }
-                done++;
-                if (done === total) saveTravelResults(results, dayId, fromItem.id);
+                checkDone();
             });
-        });
-
-        // TRANSIT — departure_time 필수
-        service.route({
-            origin, destination: dest,
-            travelMode: google.maps.TravelMode.TRANSIT,
-            transitOptions: { departureTime: new Date() }
-        }, (res, status) => {
-            if (status === 'OK' && res.routes[0]) {
-                const leg = res.routes[0].legs[0];
-                results.transit = {
-                    duration: leg.duration.text,
-                    durationValue: leg.duration.value,
-                    distance: leg.distance.text
-                };
-            }
-            done++;
-            if (done === total) saveTravelResults(results, dayId, fromItem.id);
-        });
+        } catch (e) {
+            console.warn('[TravelTime] TRANSIT 오류:', e);
+            checkDone();
+        }
     }
 
     function saveTravelResults(results, dayId, itemId) {
@@ -3039,7 +3073,11 @@ const MapView = (() => {
                 // 모든 구간 완료
                 if (completed === totalPairs) {
                     if (successCount === 0) {
-                        UI.showToast('경로를 계산할 수 없습니다', 'error');
+                        UI.showToast('차량 경로를 찾을 수 없는 구간입니다 (해외/섬 등)', 'warning');
+                        // 경로가 없어도 지도는 모든 장소 범위로 조정
+                        const bounds = new google.maps.LatLngBounds();
+                        places.forEach(p => bounds.extend({ lat: p.lat, lng: p.lng }));
+                        map.fitBounds(bounds);
                         return;
                     }
                     const distKm = (totalDist / 1000).toFixed(1);
