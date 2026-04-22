@@ -456,7 +456,9 @@ const App = (() => {
         trip.days.forEach(d => totalItems += d.items.length);
         document.getElementById('stat-days').textContent = totalItems;
 
-        const totalSpent = Store.getTotalExpenses(trip.id);
+        const realSpent = Store.getTotalExpenses(trip.id);
+        const virtualSpent = (typeof Budget !== 'undefined' && Budget.getVirtualExpenses) ? Budget.getVirtualExpenses(trip).reduce((s, v) => s + v.amount, 0) : 0;
+        const totalSpent = realSpent + virtualSpent;
         document.getElementById('stat-budget').textContent = UI.formatCurrency(trip.totalBudget || totalSpent);
         document.getElementById('stat-members').textContent = trip.members.length;
 
@@ -504,7 +506,9 @@ const App = (() => {
 
     function renderBudgetMini(trip) {
         const container = document.getElementById('dash-budget-summary');
-        const totalSpent = Store.getTotalExpenses(trip.id);
+        const realSpent = Store.getTotalExpenses(trip.id);
+        const virtualSpent = (typeof Budget !== 'undefined' && Budget.getVirtualExpenses) ? Budget.getVirtualExpenses(trip).reduce((s, v) => s + v.amount, 0) : 0;
+        const totalSpent = realSpent + virtualSpent;
         const budget = trip.totalBudget || 0;
 
         if (totalSpent === 0 && budget === 0) {

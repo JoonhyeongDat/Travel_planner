@@ -1703,8 +1703,9 @@ const Budget = (() => {
             `<option value="${m.id}" ${exp.paidBy === m.id ? 'selected' : ''}>${UI.escapeHtml(m.name)}</option>`
         ).join('');
 
+        const splitAmong = Array.isArray(exp.splitAmong) ? exp.splitAmong : [];
         const memberChecks = trip.members.map(m =>
-            `<label class="form-checkbox-label"><input type="checkbox" name="split-member" value="${m.id}" ${exp.splitAmong.includes(m.id) || exp.splitAmong.length === 0 ? 'checked' : ''} /><span>${UI.escapeHtml(m.name)}</span></label>`
+            `<label class="form-checkbox-label"><input type="checkbox" name="split-member" value="${m.id}" ${splitAmong.includes(m.id) || splitAmong.length === 0 ? 'checked' : ''} /><span>${UI.escapeHtml(m.name)}</span></label>`
         ).join('');
 
         UI.showModal('지출 수정', `
@@ -1725,7 +1726,7 @@ const Budget = (() => {
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label">날짜</label>
-                    <input type="date" id="exp-date" value="${exp.date}" />
+                    <input type="date" id="exp-date" value="${exp.date || ''}" />
                 </div>
                 <div class="form-group">
                     <label class="form-label">결제자</label>
@@ -1738,7 +1739,7 @@ const Budget = (() => {
             </div>
             <div class="form-group">
                 <label class="form-label">메모</label>
-                <input type="text" id="exp-notes" value="${UI.escapeHtml(exp.notes)}" />
+                <input type="text" id="exp-notes" value="${UI.escapeHtml(exp.notes || '')}" />
             </div>
         `, `
             <button class="btn-outline" onclick="UI.closeModal()">취소</button>
@@ -1843,7 +1844,7 @@ const Budget = (() => {
         render();
     }
 
-    return { render, showAddModal, showEditModal, remove, setTab, showEditBudgetModal, toggleReservations, toggleEstimated };
+    return { render, showAddModal, showEditModal, remove, setTab, showEditBudgetModal, toggleReservations, toggleEstimated, getVirtualExpenses };
 })();
 
 // ========== 체크리스트 ==========
