@@ -272,6 +272,7 @@ const UI = (() => {
     // ---- 드래그 앤 드롭 헬퍼 ----
     let draggedItem = null;
     let draggedDayId = null;
+    let draggedCandidateId = null; // 후보 드래그용
 
     function initDragAndDrop(container) {
         container.addEventListener('dragstart', handleDragStart);
@@ -282,12 +283,26 @@ const UI = (() => {
     }
 
     function handleDragStart(e) {
+        // 후보 아이템 드래그
+        const candidateItem = e.target.closest('[data-candidate-id]');
+        if (candidateItem) {
+            draggedCandidateId = candidateItem.dataset.candidateId;
+            draggedItem = null;
+            draggedDayId = null;
+            candidateItem.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', 'candidate:' + draggedCandidateId);
+            return;
+        }
+
+        // 일정 아이템 드래그
         const item = e.target.closest('[data-item-id]');
         const dayCard = e.target.closest('[data-day-id]');
         if (!item || !dayCard) return;
 
         draggedItem = item.dataset.itemId;
         draggedDayId = dayCard.dataset.dayId;
+        draggedCandidateId = null;
         item.classList.add('dragging');
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', draggedItem);
@@ -296,16 +311,25 @@ const UI = (() => {
     function handleDragEnd(e) {
         const item = e.target.closest('[data-item-id]');
         if (item) item.classList.remove('dragging');
-        document.querySelectorAll('.drag-over, .drag-over-item').forEach(el => {
-            el.classList.remove('drag-over', 'drag-over-item');
+        const cand = e.target.closest('[data-candidate-id]');
+        if (cand) cand.classList.remove('dragging');
+        document.querySelectorAll('.drag-over, .drag-over-item, .drag-over-candidates').forEach(el => {
+            el.classList.remove('drag-over', 'drag-over-item', 'drag-over-candidates');
         });
         draggedItem = null;
         draggedDayId = null;
+        draggedCandidateId = null;
     }
 
     function handleDragOver(e) {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
+
+        // 후보 사이드바 위에 드래그
+        const candidatesSidebar = e.target.closest('.itinerary-candidates-sidebar');
+        if (candidatesSidebar && draggedItem) {
+            candidatesSidebar.classList.add('drag-over-candidates');
+        }
 
         const dayItems = e.target.closest('.day-items');
         if (dayItems) {
@@ -324,23 +348,43 @@ const UI = (() => {
         if (dayItems && !dayItems.contains(e.relatedTarget)) {
             dayItems.classList.remove('drag-over');
         }
+        const sidebar = e.target.closest('.itinerary-candidates-sidebar');
+        if (sidebar && !sidebar.contains(e.relatedTarget)) {
+            sidebar.classList.remove('drag-over-candidates');
+        }
     }
 
     function handleDrop(e) {
         e.preventDefault();
-        document.querySelectorAll('.drag-over, .drag-over-item').forEach(el => {
-            el.classList.remove('drag-over', 'drag-over-item');
+        document.querySelectorAll('.drag-over, .drag-over-item, .drag-over-candidates').forEach(el => {
+            el.classList.remove('drag-over', 'drag-over-item', 'drag-over-candidates');
         });
 
-        if (!draggedItem || !draggedDayId) return;
-
-        const dayItems = e.target.closest('.day-items');
-        const dayCard = e.target.closest('[data-day-id]');
-        if (!dayCard) return;
-
-        const toDayId = dayCard.dataset.dayId;
         const trip = Store.getCurrentTrip();
         if (!trip) return;
+
+        // Case 1: 일정 아이템 → 후보 사이드바로 드롭
+        const candidatesSidebar = e.target.closest('.itinerary-candidates-sidebar');
+        if (candidatesSidebar && draggedItem && draggedDayId) {
+            Itinerary.moveItemToCandidate(draggedDayId, draggedItem);
+            draggedItem = null;
+            draggedDayId = null;
+            return;
+        }
+
+        // Case 2: 후보 아이템 → Day로 드롭
+        const dayCard = e.target.closest('[data-day-id]');
+        if (dayCard && draggedCandidateId) {
+            const toDayId = dayCard.dataset.dayId;
+            Itinerary.addCandidateToDay(draggedCandidateId, null, toDayId);
+            draggedCandidateId = null;
+            return;
+        }
+
+        // Case 3: 일정 아이템 → 다른 Day로 이동 (기존 로직)
+        if (!draggedItem || !draggedDayId || !dayCard) return;
+
+        const toDayId = dayCard.dataset.dayId;
 
         // 드롭 위치 계산
         const overItem = e.target.closest('[data-item-id]');
@@ -355,7 +399,7 @@ const UI = (() => {
                     newIndex++;
                 }
             }
-        } else if (dayItems) {
+        } else {
             const toDay = trip.days.find(d => d.id === toDayId);
             if (toDay) {
                 newIndex = toDay.items.length;
@@ -385,6 +429,6 @@ const UI = (() => {
         parseGoogleMapsUrl,
         reverseGeocode,
         initDragAndDrop,
-        dragState: { get item() { return draggedItem; }, get dayId() { return draggedDayId; } }
+        dragState: { get item() { return draggedItem; }, get dayId() { return draggedDayId; }, get candidateId() { return draggedCandidateId; } }
     };
 })();

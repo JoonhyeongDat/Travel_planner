@@ -252,6 +252,21 @@ body[data-theme] .itinerary-candidates-sidebar {
 }
 body[data-theme] .day-header {
     background: var(--hero-gradient);
+    border-bottom: none;
+}
+body[data-theme] .day-header .day-number {
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+body[data-theme] .day-header .day-date {
+    color: rgba(255,255,255,0.85);
+}
+body[data-theme] .day-header .btn-icon {
+    color: rgba(255,255,255,0.8);
+}
+body[data-theme] .day-header .btn-icon:hover {
+    color: #fff;
+    background: rgba(255,255,255,0.15);
 }
 
 /* --- 트립 히어로 이미지 배경 --- */

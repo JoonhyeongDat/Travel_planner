@@ -24,6 +24,14 @@ const Itinerary = (() => {
 
         container.innerHTML = trip.days.map(day => renderDay(day, trip)).join('');
         UI.initDragAndDrop(container);
+
+        // 후보 사이드바에도 드래그 앤 드롭 초기화
+        const sidebar = document.querySelector('.itinerary-candidates-sidebar');
+        if (sidebar && !sidebar._dndInit) {
+            UI.initDragAndDrop(sidebar);
+            sidebar._dndInit = true;
+        }
+
         renderItineraryCandidates();
     }
 
@@ -298,21 +306,34 @@ const Itinerary = (() => {
         UI.showModal('일정 추가', `
             <div class="form-group" style="background:var(--primary-bg);padding:16px;border-radius:var(--radius-md);border:1.5px dashed var(--primary-light)">
                 <label class="form-label" style="color:var(--primary);display:flex;align-items:center;gap:6px">
-                    <span class="material-symbols-rounded" style="font-size:1.1rem">link</span>
-                    Google Maps 링크로 자동 입력
+                    <span class="material-symbols-rounded" style="font-size:1.1rem">search</span>
+                    Google Maps에서 장소 검색
                 </label>
                 <div style="display:flex;gap:8px">
-                    <input type="text" id="item-gmaps-link" placeholder="Google Maps 링크를 붙여넣으세요" style="flex:1" />
-                    <button class="btn-primary btn-sm" id="btn-parse-gmaps" type="button" style="white-space:nowrap">
-                        <span class="material-symbols-rounded" style="font-size:1rem">auto_fix_high</span> 자동 입력
+                    <input type="text" id="item-place-search" placeholder="장소명 검색 (예: 도쿄타워, 을지로 맛집...)" style="flex:1" />
+                    <button class="btn-primary btn-sm" id="btn-place-search" type="button" style="white-space:nowrap">
+                        <span class="material-symbols-rounded" style="font-size:1rem">search</span> 검색
                     </button>
                 </div>
-                <p class="form-hint" style="margin-top:6px">구글맵에서 장소를 검색하고 "공유 → 링크 복사"한 URL을 붙여넣으면 장소 정보가 자동으로 채워집니다</p>
+                <div id="item-search-results" class="item-search-results" style="display:none;margin-top:8px;max-height:200px;overflow-y:auto;border:1px solid var(--border-light);border-radius:var(--radius-sm)"></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;margin:12px 0;color:var(--text-tertiary);font-size:0.8rem">
+                <div style="flex:1;height:1px;background:var(--border)"></div>
+                <span>또는 Google Maps 링크</span>
+                <div style="flex:1;height:1px;background:var(--border)"></div>
+            </div>
+            <div class="form-group">
+                <div style="display:flex;gap:8px">
+                    <input type="text" id="item-gmaps-link" placeholder="Google Maps 링크를 붙여넣으세요" style="flex:1" />
+                    <button class="btn-outline btn-sm" id="btn-parse-gmaps" type="button" style="white-space:nowrap">
+                        <span class="material-symbols-rounded" style="font-size:1rem">link</span> 자동 입력
+                    </button>
+                </div>
                 <div id="gmaps-parse-status" style="display:none;margin-top:8px;font-size:0.82rem;padding:8px 12px;border-radius:var(--radius-sm)"></div>
             </div>
-            <div style="display:flex;align-items:center;gap:12px;margin:16px 0;color:var(--text-tertiary);font-size:0.8rem">
+            <div style="display:flex;align-items:center;gap:12px;margin:12px 0;color:var(--text-tertiary);font-size:0.8rem">
                 <div style="flex:1;height:1px;background:var(--border)"></div>
-                <span>또는 직접 입력</span>
+                <span>직접 입력</span>
                 <div style="flex:1;height:1px;background:var(--border)"></div>
             </div>
             <div class="form-group">
@@ -373,7 +394,78 @@ const Itinerary = (() => {
         `);
 
         setTimeout(() => {
-            // Google Maps 링크 자동 파싱
+            // ===== 장소 검색 기능 =====
+            let _searchPlaceData = null; // 검색으로 선택된 장소 데이터
+            const searchInput = document.getElementById('item-place-search');
+            const searchBtn = document.getElementById('btn-place-search');
+            const searchResults = document.getElementById('item-search-results');
+
+            function doPlaceSearch() {
+                const q = searchInput.value.trim();
+                if (!q) return;
+                if (typeof google === 'undefined' || !google.maps) {
+                    UI.showToast('Google Maps API를 로드할 수 없습니다', 'warning');
+                    return;
+                }
+                // PlacesService 를 위한 임시 div
+                let svcDiv = document.getElementById('_item-places-svc');
+                if (!svcDiv) { svcDiv = document.createElement('div'); svcDiv.id = '_item-places-svc'; document.body.appendChild(svcDiv); }
+                const svc = new google.maps.places.PlacesService(svcDiv);
+                searchResults.style.display = 'block';
+                searchResults.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-tertiary);font-size:0.8rem">검색 중...</div>';
+                svc.textSearch({ query: q }, (results, status) => {
+                    if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
+                        const max = Math.min(results.length, 8);
+                        searchResults.innerHTML = '';
+                        for (let i = 0; i < max; i++) {
+                            const p = results[i];
+                            const addr = p.formatted_address || p.vicinity || '';
+                            const rating = p.rating ? `⭐${p.rating}` : '';
+                            const div = document.createElement('div');
+                            div.className = 'item-search-result';
+                            div.innerHTML = `<div class="item-search-result-name">${UI.escapeHtml(p.name)}</div>
+                                <div class="item-search-result-meta">${rating} ${UI.escapeHtml(addr)}</div>`;
+                            div.addEventListener('click', () => selectSearchedPlace(p));
+                            searchResults.appendChild(div);
+                        }
+                    } else {
+                        searchResults.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-tertiary);font-size:0.8rem">검색 결과가 없습니다</div>';
+                    }
+                });
+            }
+
+            function selectSearchedPlace(place) {
+                const lat = place.geometry.location.lat();
+                const lng = place.geometry.location.lng();
+                document.getElementById('item-title').value = place.name || '';
+                document.getElementById('item-address').value = place.formatted_address || place.vicinity || '';
+                // 카테고리 자동 감지
+                const types = place.types || [];
+                if (types.some(t => /restaurant|food|cafe|bakery|meal/.test(t))) {
+                    document.getElementById('item-category').value = 'food';
+                } else if (types.some(t => /lodging|hotel/.test(t))) {
+                    document.getElementById('item-category').value = 'accommodation';
+                } else if (types.some(t => /store|shop|mall/.test(t))) {
+                    document.getElementById('item-category').value = 'shopping';
+                } else if (types.some(t => /museum|art_gallery|amusement|zoo|aquarium/.test(t))) {
+                    document.getElementById('item-category').value = 'activity';
+                }
+                // 이미지
+                if (place.photos && place.photos[0]) {
+                    document.getElementById('item-image').value = place.photos[0].getUrl({ maxWidth: 400 });
+                }
+                _searchPlaceData = { lat, lng, placeId: place.place_id };
+                searchResults.style.display = 'none';
+                searchInput.value = place.name;
+                UI.showToast(`"${place.name}" 선택됨`, 'success');
+            }
+
+            searchBtn.addEventListener('click', doPlaceSearch);
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); doPlaceSearch(); }
+            });
+
+            // ===== Google Maps 링크 자동 파싱 =====
             const gmapsInput = document.getElementById('item-gmaps-link');
             const parseBtn = document.getElementById('btn-parse-gmaps');
             const statusEl = document.getElementById('gmaps-parse-status');
@@ -494,8 +586,9 @@ const Itinerary = (() => {
                     imageUrl,
                     travelMode: document.getElementById('item-travel-mode').value,
                     travelDuration: document.getElementById('item-travel-duration').value.trim(),
-                    lat: gmapsParsed?.lat || null,
-                    lng: gmapsParsed?.lng || null
+                    lat: _searchPlaceData?.lat || gmapsParsed?.lat || null,
+                    lng: _searchPlaceData?.lng || gmapsParsed?.lng || null,
+                    placeId: _searchPlaceData?.placeId || null
                 });
 
                 UI.closeModal();
@@ -503,7 +596,7 @@ const Itinerary = (() => {
                 App.updateDashboard();
                 UI.showToast(`"${title}" 이(가) 추가되었습니다`, 'success');
             };
-            document.getElementById('item-gmaps-link').focus();
+            document.getElementById('item-place-search').focus();
         }, 50);
     }
 
@@ -652,8 +745,9 @@ const Itinerary = (() => {
 
         list.innerHTML = candidates.map(c => {
             const catInfo = UI.categoryInfo[c.category] || UI.categoryInfo.place;
-            return `<div class="itin-candidate-item" data-candidate-id="${c.id}">
+            return `<div class="itin-candidate-item" data-candidate-id="${c.id}" draggable="true">
                 <div class="itin-candidate-left">
+                    <div class="item-drag-handle"><span class="material-symbols-rounded">drag_indicator</span></div>
                     <span class="itin-candidate-icon" style="background:${catInfo.color}15;color:${catInfo.color}">${catInfo.icon}</span>
                     <div class="itin-candidate-info">
                         <div class="itin-candidate-name">${UI.escapeHtml(c.title)}</div>
@@ -674,15 +768,19 @@ const Itinerary = (() => {
         }).join('');
     }
 
-    function addCandidateToDay(candidateId, btnEl) {
+    function addCandidateToDay(candidateId, btnEl, directDayId) {
         const trip = Store.getCurrentTrip();
         if (!trip) return;
         const candidate = (trip.candidates || []).find(c => c.id === candidateId);
         if (!candidate) return;
 
-        // 선택된 Day 가져오기
-        const selectEl = btnEl.parentElement.querySelector('.itin-candidate-day');
-        const dayId = selectEl ? selectEl.value : (trip.days[0] && trip.days[0].id);
+        // directDayId가 있으면 (드래그 앤 드롭) 바로 사용, 아니면 select에서 가져오기
+        let dayId = directDayId;
+        if (!dayId && btnEl) {
+            const selectEl = btnEl.parentElement.querySelector('.itin-candidate-day');
+            dayId = selectEl ? selectEl.value : null;
+        }
+        if (!dayId) dayId = trip.days[0] && trip.days[0].id;
         if (!dayId) { UI.showToast('일차를 먼저 추가해주세요', 'warning'); return; }
 
         Store.addItineraryItem(trip.id, dayId, {

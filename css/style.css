@@ -250,6 +250,14 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     color: var(--primary);
     font-size: 1.3rem;
 }
+.btn-delete-trip {
+    color: var(--text-tertiary);
+    font-size: 1.1rem;
+    transition: color var(--transition-fast);
+}
+.btn-delete-trip:hover {
+    color: var(--danger, #EF4444);
+}
 
 /* 네비게이션 */
 .nav-menu {
@@ -1113,6 +1121,16 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
 .day-items.drag-over {
     background: var(--primary-bg);
     border: 2px dashed var(--primary-light);
+}
+
+.itinerary-candidates-sidebar.drag-over-candidates {
+    background: var(--primary-bg);
+    outline: 2px dashed var(--primary-light);
+    outline-offset: -2px;
+}
+
+.itin-candidate-item.dragging {
+    opacity: 0.4;
 }
 
 /* 일정 아이템 */
@@ -2721,6 +2739,36 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     font-size: 0.75rem;
     color: var(--text-tertiary);
     margin-top: 4px;
+}
+
+/* 모달 내 장소 검색 결과 */
+.item-search-results {
+    background: var(--bg-primary);
+}
+.item-search-result {
+    padding: 10px 14px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border-light);
+    transition: background var(--transition-fast);
+}
+.item-search-result:last-child {
+    border-bottom: none;
+}
+.item-search-result:hover {
+    background: var(--primary-bg);
+}
+.item-search-result-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.item-search-result-meta {
+    font-size: 0.72rem;
+    color: var(--text-tertiary);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .form-checkbox-group {
     display: flex;

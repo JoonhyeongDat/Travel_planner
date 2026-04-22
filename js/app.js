@@ -110,6 +110,22 @@ const App = (() => {
         // 새 여행
         document.getElementById('btn-new-trip').addEventListener('click', showNewTripModal);
 
+        // 여행 삭제
+        document.getElementById('btn-delete-trip').addEventListener('click', () => {
+            const trip = Store.getCurrentTrip();
+            if (!trip) {
+                UI.showToast('삭제할 여행이 없습니다', 'warning');
+                return;
+            }
+            UI.showConfirm(`"${trip.name}" 여행을 삭제하시겠습니까?\n모든 일정, 예약, 후보가 함께 삭제됩니다.`, () => {
+                Store.deleteTrip(trip.id);
+                loadTripList();
+                updateDashboard();
+                renderCurrentPage();
+                UI.showToast('여행이 삭제되었습니다', 'success');
+            });
+        });
+
         // 일정 페이지 버튼
         document.getElementById('btn-add-day').addEventListener('click', () => Itinerary.addDay());
         Itinerary.initCandidatesPanel();
