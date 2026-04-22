@@ -1,0 +1,209 @@
+/* ===================================
+   트래블메이트 - 테마 스타일시트
+   여행 스타일별 색상 & 분위기 커스터마이징
+   =================================== */
+
+/* --- 도시 여행 (City Trip) 🏙️ --- */
+[data-theme="city"] {
+    --primary: #4F46E5;
+    --primary-light: #818CF8;
+    --primary-dark: #3730A3;
+    --primary-bg: rgba(79, 70, 229, 0.08);
+    --secondary: #F59E0B;
+    --accent: #EC4899;
+    --hero-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --hero-image: url('https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?w=1200&q=80');
+}
+
+/* --- 해변 휴양 (Beach Vacation) 🏖️ --- */
+[data-theme="beach"] {
+    --primary: #0891B2;
+    --primary-light: #22D3EE;
+    --primary-dark: #0E7490;
+    --primary-bg: rgba(8, 145, 178, 0.08);
+    --secondary: #F97316;
+    --accent: #F43F5E;
+    --hero-gradient: linear-gradient(135deg, #0EA5E9 0%, #06B6D4 50%, #2DD4BF 100%);
+    --hero-image: url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200&q=80');
+}
+[data-theme="beach"] .splash-screen {
+    background: linear-gradient(135deg, #0EA5E9 0%, #06B6D4 50%, #2DD4BF 100%);
+}
+
+/* --- 자연 탐험 (Nature Getaway) 🏔️ --- */
+[data-theme="nature"] {
+    --primary: #059669;
+    --primary-light: #34D399;
+    --primary-dark: #047857;
+    --primary-bg: rgba(5, 150, 105, 0.08);
+    --secondary: #D97706;
+    --accent: #7C3AED;
+    --hero-gradient: linear-gradient(135deg, #065F46 0%, #059669 50%, #10B981 100%);
+    --hero-image: url('https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=1200&q=80');
+}
+[data-theme="nature"] .splash-screen {
+    background: linear-gradient(135deg, #065F46 0%, #059669 50%, #10B981 100%);
+}
+
+/* --- 유럽 여행 (Europe Trip) 🏰 --- */
+[data-theme="europe"] {
+    --primary: #7C3AED;
+    --primary-light: #A78BFA;
+    --primary-dark: #6D28D9;
+    --primary-bg: rgba(124, 58, 237, 0.08);
+    --secondary: #E11D48;
+    --accent: #F59E0B;
+    --hero-gradient: linear-gradient(135deg, #5B21B6 0%, #7C3AED 50%, #A78BFA 100%);
+    --hero-image: url('https://images.unsplash.com/photo-1499856871958-5b9627545d1a?w=1200&q=80');
+}
+[data-theme="europe"] .splash-screen {
+    background: linear-gradient(135deg, #5B21B6 0%, #7C3AED 50%, #A78BFA 100%);
+}
+
+/* --- 일본 여행 (Japan Trip) ⛩️ --- */
+[data-theme="japan"] {
+    --primary: #DC2626;
+    --primary-light: #F87171;
+    --primary-dark: #B91C1C;
+    --primary-bg: rgba(220, 38, 38, 0.06);
+    --secondary: #EA580C;
+    --accent: #DB2777;
+    --hero-gradient: linear-gradient(135deg, #9F1239 0%, #DC2626 50%, #F87171 100%);
+    --hero-image: url('https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=1200&q=80');
+    --bg-primary: #FFFBF5;
+    --bg-tertiary: #FFF5EB;
+}
+[data-theme="japan"] .splash-screen {
+    background: linear-gradient(135deg, #9F1239 0%, #DC2626 50%, #F87171 100%);
+}
+[data-theme="japan"] .logo-text {
+    background: linear-gradient(135deg, #DC2626, #F87171);
+    -webkit-background-clip: text;
+    background-clip: text;
+}
+
+/* --- 럭셔리 여행 (Luxury Trip) 💎 --- */
+[data-theme="luxury"] {
+    --primary: #B45309;
+    --primary-light: #D97706;
+    --primary-dark: #92400E;
+    --primary-bg: rgba(180, 83, 9, 0.06);
+    --secondary: #7C3AED;
+    --accent: #DC2626;
+    --hero-gradient: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    --hero-image: url('https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&q=80');
+    --bg-primary: #FEFCF3;
+    --bg-secondary: #FFFFFF;
+    --bg-tertiary: #FEF9EF;
+    --bg-card: #FFFFFF;
+    --border: #E8DCC8;
+    --border-light: #F5EFE0;
+}
+[data-theme="luxury"] .splash-screen {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #B45309 100%);
+}
+[data-theme="luxury"] .logo-text {
+    background: linear-gradient(135deg, #B45309, #D97706);
+    -webkit-background-clip: text;
+    background-clip: text;
+}
+[data-theme="luxury"] .trip-badge {
+    background: linear-gradient(135deg, #D4AF37, #F5D45E);
+    color: #1a1a2e;
+}
+[data-theme="luxury"] .stat-icon {
+    background: rgba(180, 83, 9, 0.1);
+    color: #B45309;
+}
+
+/* --- 배낭 여행 (Backpacking) 🎒 --- */
+[data-theme="backpacking"] {
+    --primary: #2563EB;
+    --primary-light: #60A5FA;
+    --primary-dark: #1D4ED8;
+    --primary-bg: rgba(37, 99, 235, 0.08);
+    --secondary: #16A34A;
+    --accent: #EA580C;
+    --hero-gradient: linear-gradient(135deg, #1E3A5F 0%, #2563EB 60%, #60A5FA 100%);
+    --hero-image: url('https://images.unsplash.com/photo-1501555088652-021faa106b9b?w=1200&q=80');
+}
+[data-theme="backpacking"] .splash-screen {
+    background: linear-gradient(135deg, #1E3A5F 0%, #2563EB 60%, #60A5FA 100%);
+}
+
+/* --- 열대 여행 (Tropical) 🌺 --- */
+[data-theme="tropical"] {
+    --primary: #E11D48;
+    --primary-light: #FB7185;
+    --primary-dark: #BE123C;
+    --primary-bg: rgba(225, 29, 72, 0.06);
+    --secondary: #0D9488;
+    --accent: #F59E0B;
+    --hero-gradient: linear-gradient(135deg, #FF6B6B 0%, #EE5A24 30%, #F0932B 60%, #A3CB38 100%);
+    --hero-image: url('https://images.unsplash.com/photo-1559128010-7c1ad6e1b6a5?w=1200&q=80');
+    --bg-primary: #FFF5F7;
+    --bg-tertiary: #FFF0F3;
+}
+[data-theme="tropical"] .splash-screen {
+    background: linear-gradient(135deg, #FF6B6B 0%, #EE5A24 30%, #F0932B 60%, #A3CB38 100%);
+}
+
+/* --- 테마 전환 애니메이션 --- */
+body[data-theme] {
+    transition: 
+        --primary 0.4s ease,
+        --bg-primary 0.4s ease,
+        background-color 0.4s ease;
+}
+body[data-theme] .sidebar,
+body[data-theme] .content-header,
+body[data-theme] .glass-card,
+body[data-theme] .btn-primary,
+body[data-theme] .nav-item.active,
+body[data-theme] .tab-btn.active {
+    transition: all 0.4s ease;
+}
+
+/* --- 카드 호버 효과 강화 (테마별) --- */
+[data-theme="beach"] .glass-card:hover {
+    border-color: rgba(8, 145, 178, 0.3);
+}
+[data-theme="nature"] .glass-card:hover {
+    border-color: rgba(5, 150, 105, 0.3);
+}
+[data-theme="europe"] .glass-card:hover {
+    border-color: rgba(124, 58, 237, 0.3);
+}
+[data-theme="japan"] .glass-card:hover {
+    border-color: rgba(220, 38, 38, 0.2);
+}
+[data-theme="luxury"] .glass-card:hover {
+    border-color: rgba(180, 83, 9, 0.25);
+    box-shadow: 0 4px 20px rgba(180, 83, 9, 0.08);
+}
+[data-theme="tropical"] .glass-card:hover {
+    border-color: rgba(225, 29, 72, 0.25);
+}
+
+/* --- 장식 요소 --- */
+.page::before {
+    content: '';
+    position: fixed;
+    top: -50%;
+    right: -30%;
+    width: 80%;
+    height: 80%;
+    background: var(--hero-gradient);
+    opacity: 0.03;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: -1;
+}
+
+/* --- 스크롤바 테마 --- */
+[data-theme="beach"] ::-webkit-scrollbar-thumb { background: #67CDE0; }
+[data-theme="nature"] ::-webkit-scrollbar-thumb { background: #6DCBA0; }
+[data-theme="europe"] ::-webkit-scrollbar-thumb { background: #A78BFA; }
+[data-theme="japan"] ::-webkit-scrollbar-thumb { background: #FCA5A5; }
+[data-theme="luxury"] ::-webkit-scrollbar-thumb { background: #D4AF37; }
+[data-theme="tropical"] ::-webkit-scrollbar-thumb { background: #FB7185; }
