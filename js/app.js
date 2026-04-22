@@ -119,6 +119,10 @@ const App = (() => {
             btn.addEventListener('click', () => {
                 document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
+                const view = btn.dataset.view;
+                const content = document.getElementById('itinerary-content');
+                content.classList.remove('view-day', 'view-list', 'view-timeline');
+                if (view !== 'day') content.classList.add('view-' + view);
             });
         });
 

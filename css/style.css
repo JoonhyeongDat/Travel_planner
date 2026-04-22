@@ -813,24 +813,41 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     display: flex;
     flex-direction: column;
     gap: 24px;
+    flex: 1;
+    min-width: 0;
 }
 
-/* 일정 후보 패널 */
-.itinerary-candidates-panel {
+/* 일정 레이아웃: 좌 일정 + 우 후보 사이드바 */
+.itinerary-layout {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+}
+
+/* 일정 후보 사이드바 */
+.itinerary-candidates-sidebar {
+    width: 320px;
+    flex-shrink: 0;
     background: var(--bg-card);
     border-radius: var(--radius-lg);
     border: 1px solid var(--border-light);
-    margin-top: 24px;
+    position: sticky;
+    top: 90px;
+    max-height: calc(100vh - 120px);
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 .itinerary-candidates-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 14px 20px;
+    padding: 14px 16px;
     cursor: pointer;
     user-select: none;
     transition: background var(--transition-fast);
+    border-bottom: 1px solid var(--border-light);
+    flex-shrink: 0;
 }
 .itinerary-candidates-header:hover {
     background: var(--bg-secondary);
@@ -840,7 +857,7 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     align-items: center;
     gap: 8px;
     font-weight: 700;
-    font-size: 0.95rem;
+    font-size: 0.92rem;
     color: var(--text-primary);
 }
 .itinerary-candidates-title .material-symbols-rounded {
@@ -860,30 +877,26 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
 .itinerary-candidates-arrow {
     transition: transform var(--transition-fast);
     color: var(--text-tertiary);
-}
-.itinerary-candidates-panel.open .itinerary-candidates-arrow {
-    transform: rotate(180deg);
+    display: none; /* 사이드바에서는 화살표 숨김 */
 }
 .itinerary-candidates-body {
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.3s ease;
+    overflow-y: auto;
+    flex: 1;
 }
-.itinerary-candidates-panel.open .itinerary-candidates-body {
-    max-height: 2000px;
+.itinerary-candidates-body.open {
+    display: block;
 }
 .itinerary-candidates-list {
-    padding: 0 16px 16px;
+    padding: 12px;
     display: flex;
     flex-direction: column;
     gap: 8px;
 }
 .itin-candidate-item {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 12px 14px;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
     background: var(--bg-secondary);
     border-radius: var(--radius-md);
     border: 1px solid var(--border-light);
@@ -915,13 +928,13 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
 }
 .itin-candidate-name {
     font-weight: 600;
-    font-size: 0.88rem;
+    font-size: 0.85rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 .itin-candidate-addr {
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     color: var(--text-tertiary);
     white-space: nowrap;
     overflow: hidden;
@@ -942,7 +955,7 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     padding: 4px 8px;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    font-size: 0.78rem;
+    font-size: 0.75rem;
     background: var(--bg-primary);
     color: var(--text-primary);
     cursor: pointer;
@@ -967,6 +980,91 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
 }
 .btn-sm-primary .material-symbols-rounded {
     font-size: 0.95rem;
+}
+
+/* ===== 뷰 모드: 목록(list) ===== */
+.itinerary-content.view-list .day-card {
+    border: none;
+    background: none;
+    box-shadow: none;
+}
+.itinerary-content.view-list .day-header {
+    background: none;
+    color: var(--text-primary);
+    padding: 8px 0;
+    border-bottom: 2px solid var(--primary);
+    border-radius: 0;
+    margin-bottom: 8px;
+}
+.itinerary-content.view-list .day-number {
+    color: var(--primary);
+}
+.itinerary-content.view-list .day-items {
+    padding: 0;
+}
+.itinerary-content.view-list .itinerary-item {
+    border-radius: 0;
+    border: none;
+    border-bottom: 1px solid var(--border-light);
+    margin-bottom: 0;
+    padding: 12px 8px;
+}
+.itinerary-content.view-list .itinerary-item:last-child {
+    border-bottom: none;
+}
+.itinerary-content.view-list .item-image {
+    width: 48px;
+    height: 48px;
+}
+.itinerary-content.view-list .travel-connector {
+    padding-left: 56px;
+}
+
+/* ===== 뷰 모드: 타임라인(timeline) ===== */
+.itinerary-content.view-timeline .day-card {
+    border: none;
+    background: none;
+    box-shadow: none;
+    position: relative;
+}
+.itinerary-content.view-timeline .day-header {
+    background: var(--primary);
+    color: #fff;
+    border-radius: var(--radius-full);
+    padding: 8px 20px;
+    display: inline-flex;
+    margin-bottom: 16px;
+    margin-left: 28px;
+}
+.itinerary-content.view-timeline .day-items {
+    padding: 0;
+    padding-left: 28px;
+    border-left: 3px solid var(--primary-light);
+    margin-left: 14px;
+}
+.itinerary-content.view-timeline .itinerary-item {
+    position: relative;
+    margin-bottom: 12px;
+    border-radius: var(--radius-md);
+}
+.itinerary-content.view-timeline .itinerary-item::before {
+    content: '';
+    position: absolute;
+    left: -34px;
+    top: 20px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--primary);
+    border: 3px solid var(--bg-primary);
+    box-shadow: 0 0 0 2px var(--primary-light);
+}
+.itinerary-content.view-timeline .item-time-start {
+    font-size: 0.85rem;
+}
+.itinerary-content.view-timeline .travel-connector {
+    padding-left: 16px;
+    margin-left: 0;
 }
 
 /* 일차 카드 */
@@ -2782,6 +2880,26 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     }
     .category-chart {
         grid-template-columns: 1fr;
+    }
+    .itinerary-layout {
+        flex-direction: column;
+    }
+    .itinerary-candidates-sidebar {
+        width: 100%;
+        position: static;
+        max-height: none;
+    }
+    .itinerary-candidates-arrow {
+        display: block;
+    }
+    .itinerary-candidates-body {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease;
+    }
+    .itinerary-candidates-sidebar.open .itinerary-candidates-body,
+    .itinerary-candidates-body.open {
+        max-height: 2000px;
     }
 }
 

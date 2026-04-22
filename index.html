@@ -293,29 +293,31 @@
                             </button>
                         </div>
                     </div>
-                    <div id="itinerary-content" class="itinerary-content">
-                        <div class="empty-state">
-                            <div class="empty-icon">🗓️</div>
-                            <h3>아직 일정이 없습니다</h3>
-                            <p>첫 번째 여행 일차를 추가해보세요!</p>
-                            <button class="btn-primary" onclick="Itinerary.addDay()">
-                                <span class="material-symbols-rounded">add</span> 일차 추가하기
-                            </button>
-                        </div>
-                    </div>
-                    <!-- 일정 후보 패널 -->
-                    <div class="itinerary-candidates-panel" id="itinerary-candidates-panel">
-                        <div class="itinerary-candidates-header" id="itinerary-candidates-toggle">
-                            <div class="itinerary-candidates-title">
-                                <span class="material-symbols-rounded">bookmark</span>
-                                <span>일정 후보</span>
-                                <span class="itinerary-candidates-count" id="itinerary-candidates-count">0</span>
+                    <div class="itinerary-layout">
+                        <div id="itinerary-content" class="itinerary-content">
+                            <div class="empty-state">
+                                <div class="empty-icon">🗓️</div>
+                                <h3>아직 일정이 없습니다</h3>
+                                <p>첫 번째 여행 일차를 추가해보세요!</p>
+                                <button class="btn-primary" onclick="Itinerary.addDay()">
+                                    <span class="material-symbols-rounded">add</span> 일차 추가하기
+                                </button>
                             </div>
-                            <span class="material-symbols-rounded itinerary-candidates-arrow">expand_more</span>
                         </div>
-                        <div class="itinerary-candidates-body" id="itinerary-candidates-body">
-                            <div id="itinerary-candidates-list" class="itinerary-candidates-list"></div>
-                        </div>
+                        <!-- 일정 후보 사이드바 -->
+                        <aside class="itinerary-candidates-sidebar" id="itinerary-candidates-panel">
+                            <div class="itinerary-candidates-header" id="itinerary-candidates-toggle">
+                                <div class="itinerary-candidates-title">
+                                    <span class="material-symbols-rounded">bookmark</span>
+                                    <span>일정 후보</span>
+                                    <span class="itinerary-candidates-count" id="itinerary-candidates-count">0</span>
+                                </div>
+                                <span class="material-symbols-rounded itinerary-candidates-arrow">expand_more</span>
+                            </div>
+                            <div class="itinerary-candidates-body open" id="itinerary-candidates-body">
+                                <div id="itinerary-candidates-list" class="itinerary-candidates-list"></div>
+                            </div>
+                        </aside>
                     </div>
                 </section>
 

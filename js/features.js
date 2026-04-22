@@ -746,6 +746,8 @@ const Itinerary = (() => {
             toggle.addEventListener('click', () => {
                 const panel = document.getElementById('itinerary-candidates-panel');
                 if (panel) panel.classList.toggle('open');
+                const body = document.getElementById('itinerary-candidates-body');
+                if (body) body.classList.toggle('open');
             });
         }
     }

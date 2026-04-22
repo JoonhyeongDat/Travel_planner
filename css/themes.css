@@ -200,6 +200,72 @@ body[data-theme] .tab-btn.active {
     z-index: -1;
 }
 
+/* --- 테마 배경 이미지 --- */
+.main-content::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: var(--sidebar-width, 280px);
+    right: 0;
+    bottom: 0;
+    background-image: var(--hero-image);
+    background-size: cover;
+    background-position: center;
+    opacity: 0.05;
+    pointer-events: none;
+    z-index: 0;
+    filter: grayscale(20%);
+    transition: opacity 0.5s ease;
+}
+.main-content > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* --- 사이드바 테마 강화 --- */
+body[data-theme] .sidebar {
+    background: linear-gradient(180deg, var(--bg-card) 0%, var(--bg-secondary) 100%);
+}
+body[data-theme] .sidebar .logo-text {
+    background: var(--hero-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+body[data-theme] .nav-item.active {
+    background: var(--primary-bg);
+    border-left: 3px solid var(--primary);
+}
+
+/* --- 콘텐츠 헤더 테마 강화 --- */
+body[data-theme] .content-header {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
+/* --- 카드 테마 강화 --- */
+body[data-theme] .glass-card,
+body[data-theme] .day-card,
+body[data-theme] .itinerary-candidates-sidebar {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+body[data-theme] .day-header {
+    background: var(--hero-gradient);
+}
+
+/* --- 트립 히어로 이미지 배경 --- */
+body[data-theme] .trip-hero {
+    background-image: var(--hero-image);
+    background-size: cover;
+    background-position: center;
+    background-blend-mode: overlay;
+    background-color: rgba(0,0,0,0.3);
+}
+body[data-theme] .trip-hero-overlay {
+    background: linear-gradient(to top, rgba(0,0,0,0.65) 0%, rgba(0,0,0,0.15) 50%, transparent 100%);
+}
+
 /* --- 스크롤바 테마 --- */
 [data-theme="beach"] ::-webkit-scrollbar-thumb { background: #67CDE0; }
 [data-theme="nature"] ::-webkit-scrollbar-thumb { background: #6DCBA0; }
