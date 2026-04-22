@@ -816,6 +816,7 @@ const Itinerary = (() => {
                 UI.closeModal();
                 render();
                 App.updateDashboard();
+                Store.addActivity(trip.id, '일정 추가', `"${title}" 추가`);
                 UI.showToast(`"${title}" 이(가) 추가되었습니다`, 'success');
             };
             document.getElementById('item-place-search').focus();
@@ -895,6 +896,7 @@ const Itinerary = (() => {
                 });
                 UI.closeModal();
                 render();
+                Store.addActivity(trip.id, '일정 수정', `"${title}" 수정`);
                 UI.showToast('일정이 수정되었습니다', 'success');
             };
         }, 50);
@@ -904,9 +906,13 @@ const Itinerary = (() => {
         UI.showConfirm('이 일정을 삭제하시겠습니까?', () => {
             const trip = Store.getCurrentTrip();
             if (trip) {
+                const day = trip.days.find(d => d.id === dayId);
+                const item = day?.items.find(i => i.id === itemId);
+                const title = item?.title || '';
                 Store.removeItineraryItem(trip.id, dayId, itemId);
                 render();
                 App.updateDashboard();
+                Store.addActivity(trip.id, '일정 삭제', `"${title}" 삭제`);
                 UI.showToast('일정이 삭제되었습니다', 'success');
             }
         });
@@ -1734,6 +1740,8 @@ const Budget = (() => {
 
 // ========== 체크리스트 ==========
 const Checklist = (() => {
+    let _viewMode = 'category'; // 'category' | 'assignee'
+
     function render() {
         const trip = Store.getCurrentTrip();
         const container = document.getElementById('checklist-content');
@@ -1751,7 +1759,16 @@ const Checklist = (() => {
             return;
         }
 
-        container.innerHTML = trip.checklist.map(renderCategory).join('');
+        const viewToggle = `<div class="checklist-view-toggle" style="display:flex;gap:4px;margin-bottom:16px">
+            <button class="btn-sm ${_viewMode === 'category' ? 'btn-primary' : 'btn-outline'}" onclick="Checklist.setViewMode('category')">카테고리별</button>
+            <button class="btn-sm ${_viewMode === 'assignee' ? 'btn-primary' : 'btn-outline'}" onclick="Checklist.setViewMode('assignee')">담당자별</button>
+        </div>`;
+
+        if (_viewMode === 'assignee') {
+            container.innerHTML = viewToggle + renderByAssignee(trip);
+        } else {
+            container.innerHTML = viewToggle + trip.checklist.map(renderCategory).join('');
+        }
         updateProgress(trip);
     }
 
@@ -1793,6 +1810,50 @@ const Checklist = (() => {
             </div>`;
     }
 
+    function renderByAssignee(trip) {
+        const groups = {};
+        trip.checklist.forEach(cat => {
+            (cat.items || []).forEach(item => {
+                const key = item.assignee || '미배정';
+                if (!groups[key]) groups[key] = [];
+                groups[key].push({ ...item, catId: cat.id, catName: cat.name, catIcon: cat.icon });
+            });
+        });
+        const sortedKeys = Object.keys(groups).sort((a, b) => a === '미배정' ? 1 : b === '미배정' ? -1 : a.localeCompare(b));
+        return sortedKeys.map(assignee => {
+            const items = groups[assignee];
+            const checked = items.filter(i => i.checked).length;
+            const itemsHTML = items.map(item => `
+                <div class="checklist-item ${item.checked ? 'completed' : ''}">
+                    <div class="checklist-checkbox ${item.checked ? 'checked' : ''}" onclick="Checklist.toggleItem('${item.catId}','${item.id}')">
+                        ${item.checked ? '<span class="material-symbols-rounded">check</span>' : ''}
+                    </div>
+                    <span class="checklist-item-text">${UI.escapeHtml(item.text)}</span>
+                    <span class="checklist-item-cat" style="font-size:0.75rem;opacity:0.6">${item.catIcon} ${UI.escapeHtml(item.catName)}</span>
+                    <button class="btn-icon btn-sm" onclick="Checklist.removeItem('${item.catId}','${item.id}')" style="opacity:0.5" title="삭제">
+                        <span class="material-symbols-rounded" style="font-size:1rem">close</span>
+                    </button>
+                </div>
+            `).join('');
+            return `
+                <div class="checklist-category">
+                    <div class="checklist-category-header">
+                        <div class="checklist-category-title">
+                            <span class="material-symbols-rounded">person</span>
+                            <span>${assignee === '미배정' ? '미배정' : UI.escapeHtml(assignee)}</span>
+                            <span class="checklist-count">${checked}/${items.length}</span>
+                        </div>
+                    </div>
+                    <div class="checklist-items">${itemsHTML}</div>
+                </div>`;
+        }).join('');
+    }
+
+    function setViewMode(mode) {
+        _viewMode = mode;
+        render();
+    }
+
     function updateProgress(trip) {
         if (!trip) return;
         const progress = Store.getChecklistProgress(trip.id);
@@ -1815,7 +1876,10 @@ const Checklist = (() => {
     function toggleItem(catId, itemId) {
         const trip = Store.getCurrentTrip();
         if (trip) {
+            const cat = trip.checklist.find(c => c.id === catId);
+            const item = cat?.items.find(i => i.id === itemId);
             Store.toggleChecklistItem(trip.id, catId, itemId);
+            if (item) Store.addActivity(trip.id, '체크리스트', `"${item.text}" ${item.checked ? '완료' : '해제'}`);
             render();
         }
     }
@@ -1919,6 +1983,7 @@ const Checklist = (() => {
                 Store.addChecklistItem(trip.id, catId, text, document.getElementById('cl-item-assignee').value);
                 UI.closeModal();
                 render();
+                Store.addActivity(trip.id, '체크리스트 추가', `"${text}" 추가`);
                 UI.showToast('항목이 추가되었습니다', 'success');
             };
             document.getElementById('cl-item-text').focus();
@@ -1931,7 +1996,7 @@ const Checklist = (() => {
 
     return {
         render, toggleItem, removeItem, removeCategory,
-        showAddCategoryModal, showAddItemModal, showAddModal
+        showAddCategoryModal, showAddItemModal, showAddModal, setViewMode
     };
 })();
 
@@ -2098,15 +2163,39 @@ const Members = (() => {
             return;
         }
 
-        container.innerHTML = '<div class="members-grid">' + trip.members.map(renderCard).join('') + '</div>';
+        const myId = Store.getMyMemberId();
+        const activityLog = Store.getActivityLog(trip.id);
+
+        container.innerHTML = `
+            <div class="members-grid">${trip.members.map(m => renderCard(m, myId)).join('')}</div>
+            <div style="margin-top:24px">
+                <h3 style="font-size:1rem;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px">
+                    <span class="material-symbols-rounded">history</span> 활동 내역
+                </h3>
+                <div class="activity-log">
+                    ${activityLog.length === 0
+                        ? '<p style="color:var(--text-tertiary);font-size:0.85rem;padding:12px">아직 활동 내역이 없습니다.</p>'
+                        : activityLog.slice(0, 30).map(a => `
+                            <div class="activity-item">
+                                <div class="activity-member">${UI.escapeHtml(a.memberName || '알 수 없음')}</div>
+                                <div class="activity-action">${UI.escapeHtml(a.action)}</div>
+                                ${a.detail ? `<div class="activity-detail">${UI.escapeHtml(a.detail)}</div>` : ''}
+                                <div class="activity-time">${UI.timeAgo(a.timestamp)}</div>
+                            </div>
+                        `).join('')
+                    }
+                </div>
+            </div>`;
     }
 
-    function renderCard(member) {
+    function renderCard(member, myId) {
         const trip = Store.getCurrentTrip();
         const paid = trip ? trip.expenses.filter(e => e.paidBy === member.id).reduce((s, e) => s + (Number(e.amount) || 0), 0) : 0;
+        const isMe = member.id === myId;
 
         return `
-            <div class="member-card">
+            <div class="member-card ${isMe ? 'member-card-me' : ''}">
+                ${isMe ? '<div class="member-me-badge">나</div>' : ''}
                 <div class="member-avatar" style="background:${member.color}">${UI.escapeHtml(member.avatar || member.name[0])}</div>
                 <div class="member-name">${UI.escapeHtml(member.name)}</div>
                 <div class="member-role">${UI.escapeHtml(member.role)}</div>
@@ -2116,12 +2205,16 @@ const Members = (() => {
                         <div class="member-stat-label">결제 금액</div>
                     </div>
                 </div>
-                ${member.role !== '관리자' ? `
                 <div style="margin-top:14px;display:flex;gap:8px;justify-content:center">
-                    <button class="btn-text btn-sm" onclick="Members.showEditModal('${member.id}')">수정</button>
-                    <button class="btn-text btn-sm text-danger" onclick="Members.remove('${member.id}')">삭제</button>
-                </div>` : ''}
+                    ${isMe ? `<button class="btn-text btn-sm" onclick="Members.showEditModal('${member.id}')">이름 수정</button>` : ''}
+                    ${member.role !== '관리자' && !isMe ? `
+                        <button class="btn-text btn-sm" onclick="Members.showEditModal('${member.id}')">수정</button>
+                        <button class="btn-text btn-sm text-danger" onclick="Members.remove('${member.id}')">삭제</button>
+                    ` : ''}
+                    ${member.role === '관리자' && isMe ? `<button class="btn-text btn-sm" onclick="Members.showEditModal('${member.id}')">이름 수정</button>` : ''}
+                </div>
             </div>`;
+    }
     }
 
     function showAddModal() {
@@ -2595,6 +2688,7 @@ const MapView = (() => {
             if (!trip) { UI.showToast('여행을 먼저 생성해주세요', 'warning'); return; }
             if (currentPlaceData) {
                 Store.addCandidate(trip.id, currentPlaceData);
+                Store.addActivity(trip.id, '후보 추가', `"${currentPlaceData.title}" 후보 추가`);
                 renderCandidatesList();
                 switchTab('candidates');
                 UI.showToast(`"${currentPlaceData.title}" 후보에 추가됨`, 'success');

@@ -38,6 +38,8 @@ const App = (() => {
             setTimeout(() => {
                 updateDashboard();
                 renderCurrentPage();
+                // 멤버 미선택 시 선택 모달 표시
+                checkMemberSelection();
             }, 100);
         }
 
@@ -500,11 +502,91 @@ const App = (() => {
             ${unchecked.slice(0, 4).map(item => `
                 <div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:0.85rem">
                     <span style="color:var(--text-tertiary)">☐</span>
-                    <span>${UI.escapeHtml(item.text)}</span>
+                    <span style="flex:1">${UI.escapeHtml(item.text)}</span>
+                    ${item.assignee ? `<span class="checklist-item-assignee" style="font-size:0.7rem">${UI.escapeHtml(item.assignee)}</span>` : ''}
                 </div>
             `).join('')}
             ${unchecked.length > 4 ? `<div style="font-size:0.78rem;color:var(--text-tertiary);margin-top:4px">외 ${unchecked.length - 4}개</div>` : ''}
         `;
+    }
+
+    // ---- 멤버 선택 ----
+    function checkMemberSelection() {
+        const trip = Store.getCurrentTrip();
+        if (!trip || trip.members.length === 0) return;
+        const myId = Store.getMyMemberId();
+        // 이미 선택했고 해당 멤버가 존재하면 스킵
+        if (myId && trip.members.find(m => m.id === myId)) return;
+        setTimeout(() => showMemberSelectModal(), 500);
+    }
+
+    function showMemberSelectModal() {
+        const trip = Store.getCurrentTrip();
+        if (!trip) return;
+
+        const membersHTML = trip.members.map(m =>
+            `<button class="member-select-option" data-mid="${m.id}" style="display:flex;align-items:center;gap:12px;padding:12px 16px;border:1px solid var(--border-light);border-radius:var(--radius-md);background:var(--bg-secondary);cursor:pointer;width:100%;transition:all var(--transition-fast)">
+                <div style="width:36px;height:36px;border-radius:50%;background:${m.color};display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700">${UI.escapeHtml(m.avatar || m.name[0])}</div>
+                <span style="font-weight:600">${UI.escapeHtml(m.name)}</span>
+                <span style="font-size:0.8rem;color:var(--text-tertiary)">${UI.escapeHtml(m.role)}</span>
+            </button>`
+        ).join('');
+
+        UI.showModal('본인을 선택하세요', `
+            <p style="margin-bottom:16px;color:var(--text-secondary);font-size:0.88rem">여행 멤버 중 본인을 선택해주세요. 활동 내역이 기록됩니다.</p>
+            <div style="display:flex;flex-direction:column;gap:8px">${membersHTML}</div>
+            <div style="margin-top:12px;text-align:center">
+                <button class="btn-text" id="btn-add-me-as-member" style="font-size:0.85rem;color:var(--primary)">
+                    <span class="material-symbols-rounded" style="font-size:1rem;vertical-align:middle">person_add</span> 새 멤버로 참가하기
+                </button>
+            </div>
+        `, '');
+
+        setTimeout(() => {
+            document.querySelectorAll('.member-select-option').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    Store.setMyMemberId(btn.dataset.mid);
+                    UI.closeModal();
+                    const name = trip.members.find(m => m.id === btn.dataset.mid)?.name || '';
+                    UI.showToast(`${name}님으로 설정되었습니다`, 'success');
+                    renderCurrentPage();
+                });
+            });
+            const addBtn = document.getElementById('btn-add-me-as-member');
+            if (addBtn) {
+                addBtn.onclick = () => {
+                    UI.closeModal();
+                    showAddMeModal();
+                };
+            }
+        }, 50);
+    }
+
+    function showAddMeModal() {
+        const trip = Store.getCurrentTrip();
+        if (!trip) return;
+        UI.showModal('새 멤버로 참가', `
+            <div class="form-group">
+                <label class="form-label">이름 *</label>
+                <input type="text" id="new-me-name" placeholder="본인 이름" />
+            </div>
+        `, `
+            <button class="btn-outline" onclick="UI.closeModal()">취소</button>
+            <button class="btn-primary" id="btn-save-me">참가</button>
+        `);
+        setTimeout(() => {
+            document.getElementById('btn-save-me').onclick = () => {
+                const name = document.getElementById('new-me-name').value.trim();
+                if (!name) { UI.showToast('이름을 입력해주세요', 'warning'); return; }
+                const member = Store.addMember(trip.id, name);
+                Store.setMyMemberId(member.id);
+                UI.closeModal();
+                UI.showToast(`${name}님으로 참가되었습니다!`, 'success');
+                renderCurrentPage();
+                updateDashboard();
+            };
+            document.getElementById('new-me-name').focus();
+        }, 50);
     }
 
     // ---- 여행 관리 ----

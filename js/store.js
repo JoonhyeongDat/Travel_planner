@@ -15,7 +15,8 @@ const Store = (() => {
             currency: 'KRW',
             currencySymbol: '₩',
             userName: '나',
-            language: 'ko'
+            language: 'ko',
+            myMemberId: null
         }
     };
 
@@ -46,6 +47,7 @@ const Store = (() => {
             journals: [],
             favorites: [],
             candidates: [],
+            activityLog: [],
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         };
@@ -626,6 +628,44 @@ const Store = (() => {
             const trip = _data.trips.find(t => t.id === tripId);
             if (!trip) return [];
             return trip.candidates || [];
+        },
+
+        // 현재 사용자
+        getMyMemberId: () => _data.settings.myMemberId,
+        setMyMemberId: (id) => {
+            _data.settings.myMemberId = id;
+            save(_data);
+        },
+        getCurrentMemberName: () => {
+            const trip = _data.trips.find(t => t.id === _data.currentTripId);
+            if (!trip || !_data.settings.myMemberId) return '알 수 없음';
+            const m = trip.members.find(m => m.id === _data.settings.myMemberId);
+            return m ? m.name : '알 수 없음';
+        },
+
+        // 활동 로그
+        addActivity: (tripId, action, detail) => {
+            const trip = _data.trips.find(t => t.id === tripId);
+            if (!trip) return;
+            if (!trip.activityLog) trip.activityLog = [];
+            const name = _data.settings.myMemberId
+                ? (trip.members.find(m => m.id === _data.settings.myMemberId)?.name || '알 수 없음')
+                : '알 수 없음';
+            trip.activityLog.unshift({
+                id: generateId(),
+                memberId: _data.settings.myMemberId || null,
+                memberName: name,
+                action,
+                detail: detail || '',
+                timestamp: new Date().toISOString()
+            });
+            // 최대 100개 유지
+            if (trip.activityLog.length > 100) trip.activityLog.length = 100;
+            save(_data);
+        },
+        getActivityLog: (tripId) => {
+            const trip = _data.trips.find(t => t.id === tripId);
+            return trip ? (trip.activityLog || []) : [];
         },
 
         // 유틸리티
