@@ -1109,11 +1109,12 @@ const Reservations = (() => {
         const statusLabels = { confirmed: '확정', pending: '대기중', cancelled: '취소됨' };
 
         let detailsHTML = '';
+        const details = res.details || {};
         if (res.type === 'flight') {
             detailsHTML = `
-                ${res.details.departure ? `<div class="reservation-detail"><span class="material-symbols-rounded">flight_takeoff</span><span>${UI.escapeHtml(res.details.departure)}</span></div>` : ''}
-                ${res.details.arrival ? `<div class="reservation-detail"><span class="material-symbols-rounded">flight_land</span><span>${UI.escapeHtml(res.details.arrival)}</span></div>` : ''}
-                ${res.details.airline ? `<div class="reservation-detail"><span class="material-symbols-rounded">airlines</span><span>${UI.escapeHtml(res.details.airline)}</span></div>` : ''}
+                ${details.departure ? `<div class="reservation-detail"><span class="material-symbols-rounded">flight_takeoff</span><span>${UI.escapeHtml(details.departure)}</span></div>` : ''}
+                ${details.arrival ? `<div class="reservation-detail"><span class="material-symbols-rounded">flight_land</span><span>${UI.escapeHtml(details.arrival)}</span></div>` : ''}
+                ${details.airline ? `<div class="reservation-detail"><span class="material-symbols-rounded">airlines</span><span>${UI.escapeHtml(details.airline)}</span></div>` : ''}
             `;
         }
 

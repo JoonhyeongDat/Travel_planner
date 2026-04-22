@@ -485,12 +485,16 @@ const App = (() => {
         }
 
         const pct = progress.percent;
-        let unchecked = [];
+        let allItems = [];
         trip.checklist.forEach(cat => {
             cat.items.forEach(item => {
-                if (!item.checked) unchecked.push(item);
+                allItems.push({ ...item, catId: cat.id });
             });
         });
+        // 미완료 먼저, 완료 뒤에
+        const unchecked = allItems.filter(i => !i.checked);
+        const checked = allItems.filter(i => i.checked);
+        const displayItems = [...unchecked, ...checked].slice(0, 6);
 
         container.innerHTML = `
             <div style="margin-bottom:10px;display:flex;align-items:center;gap:10px">
@@ -499,14 +503,14 @@ const App = (() => {
                 </div>
                 <span style="font-size:0.82rem;font-weight:600;color:var(--primary)">${pct}%</span>
             </div>
-            ${unchecked.slice(0, 4).map(item => `
-                <div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:0.85rem">
-                    <span style="color:var(--text-tertiary)">☐</span>
-                    <span style="flex:1">${UI.escapeHtml(item.text)}</span>
+            ${displayItems.map(item => `
+                <div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:0.85rem;cursor:pointer;${item.checked ? 'opacity:0.45' : ''}" onclick="App.toggleDashChecklist('${item.catId}','${item.id}')">
+                    <span style="color:${item.checked ? 'var(--success)' : 'var(--text-tertiary)'}">${item.checked ? '☑' : '☐'}</span>
+                    <span style="flex:1;${item.checked ? 'text-decoration:line-through' : ''}">${UI.escapeHtml(item.text)}</span>
                     ${item.assignee ? `<span class="checklist-item-assignee" style="font-size:0.7rem">${UI.escapeHtml(item.assignee)}</span>` : ''}
                 </div>
             `).join('')}
-            ${unchecked.length > 4 ? `<div style="font-size:0.78rem;color:var(--text-tertiary);margin-top:4px">외 ${unchecked.length - 4}개</div>` : ''}
+            ${allItems.length > 6 ? `<div style="font-size:0.78rem;color:var(--text-tertiary);margin-top:4px">외 ${allItems.length - 6}개</div>` : ''}
         `;
     }
 
@@ -759,10 +763,21 @@ const App = (() => {
     // ---- 시작 ----
     document.addEventListener('DOMContentLoaded', init);
 
+    function toggleDashChecklist(catId, itemId) {
+        const trip = Store.getCurrentTrip();
+        if (!trip) return;
+        const cat = trip.checklist.find(c => c.id === catId);
+        const item = cat?.items.find(i => i.id === itemId);
+        Store.toggleChecklistItem(trip.id, catId, itemId);
+        if (item) Store.addActivity(trip.id, '체크리스트', `"${item.text}" ${item.checked ? '완료' : '해제'}`);
+        updateDashboard();
+    }
+
     return {
         navigateTo,
         updateDashboard,
         setTheme,
-        showNewTripModal
+        showNewTripModal,
+        toggleDashChecklist
     };
 })();

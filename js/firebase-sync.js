@@ -61,6 +61,14 @@ const FirebaseSync = (() => {
         trip.checklist.forEach(cat => {
             cat.items = ensureArray(cat.items);
         });
+        // reservations 내부 details 객체 복원
+        trip.reservations.forEach(res => {
+            if (!res.details) res.details = {};
+        });
+        // expenses 내부 splitAmong 배열 복원
+        trip.expenses.forEach(exp => {
+            exp.splitAmong = ensureArray(exp.splitAmong);
+        });
         return trip;
     }
 
