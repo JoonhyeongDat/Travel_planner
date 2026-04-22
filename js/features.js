@@ -183,11 +183,12 @@ const Itinerary = (() => {
         const service = new google.maps.DirectionsService();
         const origin = { lat: fromItem.lat, lng: fromItem.lng };
         const dest = { lat: toItem.lat, lng: toItem.lng };
-        const modes = ['WALKING', 'DRIVING', 'TRANSIT'];
         const results = {};
         let done = 0;
+        const total = 3;
 
-        modes.forEach(mode => {
+        // WALKING & DRIVING — 단순 요청
+        ['WALKING', 'DRIVING'].forEach(mode => {
             service.route({
                 origin, destination: dest,
                 travelMode: google.maps.TravelMode[mode]
@@ -201,24 +202,45 @@ const Itinerary = (() => {
                     };
                 }
                 done++;
-                if (done === modes.length && Object.keys(results).length > 0) {
-                    // 가장 짧은 모드를 기본 선택
-                    let shortest = null, shortestVal = Infinity;
-                    for (const [k, v] of Object.entries(results)) {
-                        if (v.durationValue < shortestVal) {
-                            shortestVal = v.durationValue;
-                            shortest = k;
-                        }
-                    }
-                    results.selectedMode = shortest;
-                    const trip = Store.getCurrentTrip();
-                    if (trip) {
-                        Store.updateItineraryItem(trip.id, dayId, fromItem.id, { travelInfo: results });
-                        render();
-                    }
-                }
+                if (done === total) saveTravelResults(results, dayId, fromItem.id);
             });
         });
+
+        // TRANSIT — departure_time 필수
+        service.route({
+            origin, destination: dest,
+            travelMode: google.maps.TravelMode.TRANSIT,
+            transitOptions: { departureTime: new Date() }
+        }, (res, status) => {
+            if (status === 'OK' && res.routes[0]) {
+                const leg = res.routes[0].legs[0];
+                results.transit = {
+                    duration: leg.duration.text,
+                    durationValue: leg.duration.value,
+                    distance: leg.distance.text
+                };
+            }
+            done++;
+            if (done === total) saveTravelResults(results, dayId, fromItem.id);
+        });
+    }
+
+    function saveTravelResults(results, dayId, itemId) {
+        if (Object.keys(results).length === 0) return;
+        // 가장 짧은 모드를 기본 선택
+        let shortest = null, shortestVal = Infinity;
+        for (const [k, v] of Object.entries(results)) {
+            if (v.durationValue && v.durationValue < shortestVal) {
+                shortestVal = v.durationValue;
+                shortest = k;
+            }
+        }
+        results.selectedMode = shortest;
+        const trip = Store.getCurrentTrip();
+        if (trip) {
+            Store.updateItineraryItem(trip.id, dayId, itemId, { travelInfo: results });
+            render();
+        }
     }
 
     // 이동 수단 선택
@@ -2152,14 +2174,21 @@ const MapView = (() => {
     function searchPlace(query) {
         if (!query || !map) return;
 
+        const resultsEl = document.getElementById('map-search-results');
+
         if (placesService) {
             placesService.textSearch({
                 query: query,
                 location: map.getCenter(),
                 radius: 50000
             }, (results, status) => {
-                if (status === google.maps.places.PlacesServiceStatus.OK && results[0]) {
-                    showPlaceCard(results[0]);
+                if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
+                    if (results.length === 1) {
+                        showPlaceCard(results[0]);
+                        closeSearchResults();
+                    } else {
+                        showSearchResults(results);
+                    }
                 } else {
                     geocodeFallback(query);
                 }
@@ -2167,6 +2196,93 @@ const MapView = (() => {
         } else {
             geocodeFallback(query);
         }
+    }
+
+    function showSearchResults(results) {
+        const resultsEl = document.getElementById('map-search-results');
+        if (!resultsEl) return;
+
+        // 검색 마커 제거 & 결과 마커 배열
+        if (searchMarker) { searchMarker.setMap(null); searchMarker = null; }
+        clearSearchResultMarkers();
+
+        const bounds = new google.maps.LatLngBounds();
+        const maxResults = Math.min(results.length, 20);
+
+        let html = `<div class="search-results-header">
+            <span>검색 결과 ${results.length}건</span>
+            <button class="search-results-close" onclick="MapView.closeSearchResults()">
+                <span class="material-symbols-rounded">close</span>
+            </button>
+        </div><div class="search-results-list">`;
+
+        for (let i = 0; i < maxResults; i++) {
+            const place = results[i];
+            const lat = place.geometry.location.lat();
+            const lng = place.geometry.location.lng();
+            const photoUrl = place.photos && place.photos[0]
+                ? place.photos[0].getUrl({ maxWidth: 60, maxHeight: 60 })
+                : '';
+            const rating = place.rating ? `⭐ ${place.rating}` : '';
+            const addr = place.formatted_address || place.vicinity || '';
+
+            // 마커 추가
+            const marker = new google.maps.Marker({
+                position: { lat, lng },
+                map: map,
+                label: { text: String(i + 1), color: '#fff', fontWeight: 'bold', fontSize: '12px' },
+                title: place.name,
+                zIndex: 100 + i
+            });
+            marker.addListener('click', () => {
+                showPlaceCard(place);
+                closeSearchResults();
+            });
+            _searchResultMarkers.push(marker);
+            bounds.extend({ lat, lng });
+
+            html += `<div class="search-result-item" data-idx="${i}" onclick="MapView.selectSearchResult(${i})">
+                <div class="search-result-num">${i + 1}</div>
+                ${photoUrl ? `<img class="search-result-photo" src="${photoUrl}" alt="" loading="lazy" onerror="this.style.display='none'">` : '<div class="search-result-photo-empty"><span class="material-symbols-rounded">location_on</span></div>'}
+                <div class="search-result-info">
+                    <div class="search-result-name">${UI.escapeHtml(place.name)}</div>
+                    <div class="search-result-meta">
+                        ${rating ? `<span class="search-result-rating">${rating}</span>` : ''}
+                        <span class="search-result-addr">${UI.escapeHtml(addr)}</span>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        html += '</div>';
+        resultsEl.innerHTML = html;
+        resultsEl.classList.add('show');
+        _searchResults = results;
+
+        // 지도를 결과 범위에 맞추기
+        if (!bounds.isEmpty()) map.fitBounds(bounds, { padding: 60 });
+    }
+
+    let _searchResults = [];
+    let _searchResultMarkers = [];
+
+    function clearSearchResultMarkers() {
+        _searchResultMarkers.forEach(m => m.setMap(null));
+        _searchResultMarkers = [];
+    }
+
+    function selectSearchResult(idx) {
+        if (_searchResults[idx]) {
+            showPlaceCard(_searchResults[idx]);
+            closeSearchResults();
+        }
+    }
+
+    function closeSearchResults() {
+        const el = document.getElementById('map-search-results');
+        if (el) { el.classList.remove('show'); el.innerHTML = ''; }
+        clearSearchResultMarkers();
+        _searchResults = [];
     }
 
     function geocodeFallback(query) {
@@ -2647,5 +2763,6 @@ const MapView = (() => {
     }
 
     return { render, initGoogleMap, focusMarker, showRoute, setFilter, switchTab,
-             searchPlace, addCandidateToItinerary, focusCandidate, removeCandidate };
+             searchPlace, addCandidateToItinerary, focusCandidate, removeCandidate,
+             selectSearchResult, closeSearchResults };
 })();
