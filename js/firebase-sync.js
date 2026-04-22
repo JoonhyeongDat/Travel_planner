@@ -6,11 +6,17 @@
 const FirebaseSync = (() => {
     let db = null;
     let _listening = false;
-    let _suppressRemote = false; // 내 변경 시 원격 리스너 무시
+    let _suppressRemote = false;
     let _lastWriteTime = 0;
+    let _initialFire = true; // onValue 최초 발생 무시용
+    let _debounceTimer = null;
 
     function init() {
         try {
+            if (typeof firebase === 'undefined') {
+                console.warn('[Firebase] SDK 로드 안됨, 오프라인 모드');
+                return false;
+            }
             const firebaseConfig = {
                 apiKey: "AIzaSyDdhNUCqWtn3Dhsf7VDPOlKvAb_qkuGVVw",
                 authDomain: "travel-planner-e290f.firebaseapp.com",
@@ -21,7 +27,7 @@ const FirebaseSync = (() => {
                 appId: "1:75574492691:web:9eb95724f6a9099d6949e6"
             };
 
-            const app = firebase.initializeApp(firebaseConfig);
+            firebase.initializeApp(firebaseConfig);
             db = firebase.database();
             console.log('[Firebase] 초기화 완료');
             return true;
@@ -31,16 +37,57 @@ const FirebaseSync = (() => {
         }
     }
 
+    // Firebase는 빈 배열([])을 저장하지 않으므로 복원 필요
+    function sanitizeTrip(trip) {
+        if (!trip) return trip;
+        trip.days = ensureArray(trip.days);
+        trip.reservations = ensureArray(trip.reservations);
+        trip.expenses = ensureArray(trip.expenses);
+        trip.members = ensureArray(trip.members);
+        trip.checklist = ensureArray(trip.checklist);
+        trip.journals = ensureArray(trip.journals);
+        trip.favorites = ensureArray(trip.favorites);
+        trip.candidates = ensureArray(trip.candidates);
+        // days 내부 items 배열 복원
+        trip.days.forEach(day => {
+            day.items = ensureArray(day.items);
+            day.items.forEach(item => {
+                item.comments = ensureArray(item.comments);
+            });
+        });
+        // checklist 내부 items 배열 복원
+        trip.checklist.forEach(cat => {
+            cat.items = ensureArray(cat.items);
+        });
+        return trip;
+    }
+
+    // Firebase에서 배열이 객체로 변환될 수 있으므로 배열로 복원
+    function ensureArray(val) {
+        if (Array.isArray(val)) return val;
+        if (val === null || val === undefined) return [];
+        if (typeof val === 'object') return Object.values(val);
+        return [];
+    }
+
+    function sanitizeData(data) {
+        if (!data) return data;
+        data.trips = ensureArray(data.trips);
+        data.trips = data.trips.map(t => sanitizeTrip(t));
+        if (!data.settings) data.settings = {};
+        return data;
+    }
+
     // 전체 데이터를 Firebase에 저장
     function pushData(data) {
         if (!db) return;
         _suppressRemote = true;
         _lastWriteTime = Date.now();
-        const cleanData = JSON.parse(JSON.stringify(data)); // 순환 참조 방지
+        const cleanData = JSON.parse(JSON.stringify(data));
         db.ref('appData').set(cleanData)
             .then(() => {
                 console.log('[Firebase] 데이터 저장 완료');
-                setTimeout(() => { _suppressRemote = false; }, 500);
+                setTimeout(() => { _suppressRemote = false; }, 1000);
             })
             .catch(err => {
                 console.error('[Firebase] 저장 실패:', err);
@@ -52,18 +99,26 @@ const FirebaseSync = (() => {
     function startListening(onDataReceived) {
         if (!db || _listening) return;
         _listening = true;
+        _initialFire = true;
 
         db.ref('appData').on('value', (snapshot) => {
-            if (_suppressRemote) return; // 내 변경은 무시
+            // 최초 발생 무시 (pullData로 이미 처리됨)
+            if (_initialFire) {
+                _initialFire = false;
+                return;
+            }
+            if (_suppressRemote) return;
+            if (Date.now() - _lastWriteTime < 1000) return;
 
             const remoteData = snapshot.val();
             if (!remoteData) return;
 
-            // 내가 방금 쓴 데이터면 무시 (500ms 이내)
-            if (Date.now() - _lastWriteTime < 500) return;
-
-            console.log('[Firebase] 원격 데이터 수신');
-            onDataReceived(remoteData);
+            // 디바운스: 빠른 연속 변경 시 마지막 것만 반영
+            clearTimeout(_debounceTimer);
+            _debounceTimer = setTimeout(() => {
+                console.log('[Firebase] 원격 데이터 수신');
+                onDataReceived(sanitizeData(remoteData));
+            }, 300);
         });
     }
 
@@ -72,7 +127,8 @@ const FirebaseSync = (() => {
         if (!db) return null;
         try {
             const snapshot = await db.ref('appData').once('value');
-            return snapshot.val();
+            const data = snapshot.val();
+            return data ? sanitizeData(data) : null;
         } catch (e) {
             console.error('[Firebase] 데이터 가져오기 실패:', e);
             return null;

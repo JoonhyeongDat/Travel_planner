@@ -60,7 +60,6 @@ const App = (() => {
                 const localHasData = localData.trips && localData.trips.length > 0;
 
                 if (localHasData) {
-                    // 로컬 + 원격 여행 병합 (ID 중복 제거, 원격 우선)
                     const mergedTrips = [...remoteData.trips];
                     localData.trips.forEach(lt => {
                         if (!mergedTrips.find(rt => rt.id === lt.id)) {
@@ -76,13 +75,30 @@ const App = (() => {
                 renderCurrentPage();
             }
 
-            // 실시간 리스너 시작
+            // 실시간 리스너 시작 (pullData 완료 후)
+            FirebaseSync.startListening((newData) => {
+                const prevTripId = Store.getData().currentTripId;
+                Store.applyRemoteData(newData);
+                // 현재 선택된 여행 유지 (Firebase push 없이)
+                if (prevTripId) {
+                    const stillExists = Store.getTrips().find(t => t.id === prevTripId);
+                    if (stillExists) {
+                        Store.getData().currentTripId = prevTripId;
+                    }
+                }
+                loadTripList();
+                updateDashboard();
+                renderCurrentPage();
+                console.log('[Sync] 다른 사용자의 변경사항 반영 완료');
+            });
+        }).catch(err => {
+            console.error('[Firebase] 초기 데이터 로드 실패:', err);
+            // 오프라인에서도 정상 동작
             FirebaseSync.startListening((newData) => {
                 Store.applyRemoteData(newData);
                 loadTripList();
                 updateDashboard();
                 renderCurrentPage();
-                console.log('[Sync] 다른 사용자의 변경사항 반영 완료');
             });
         });
     }
