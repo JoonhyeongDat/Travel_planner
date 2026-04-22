@@ -390,6 +390,42 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     color: var(--text-tertiary);
     margin-top: -2px;
 }
+.page-help-btn {
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    border-radius: 50%;
+    color: var(--text-tertiary);
+    opacity: 0.6;
+    transition: all var(--transition-fast);
+    margin-top: 2px;
+}
+.page-help-btn:hover {
+    opacity: 1;
+    color: var(--primary);
+    background: var(--primary-bg);
+}
+.page-help-tooltip {
+    position: fixed;
+    z-index: 9999;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    padding: 14px 18px;
+    max-width: 320px;
+    font-size: 0.82rem;
+    line-height: 1.7;
+    color: var(--text-secondary);
+    animation: fadeIn 0.15s ease;
+}
+.page-help-tooltip div {
+    white-space: pre-wrap;
+}
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
 .header-right {
     display: flex;
     align-items: center;

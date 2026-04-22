@@ -315,9 +315,60 @@ const App = (() => {
             weather: ['날씨', '여행지 날씨 확인']
         };
 
+        const helpTexts = {
+            dashboard: '• 다가오는 일정, 예산, 준비물 현황을 한눈에 확인\n• 준비물 체크를 바로 토글 가능\n• D-Day 카운트다운 표시\n• 각 섹션 클릭 시 해당 페이지로 이동',
+            itinerary: '• 일차별 일정을 추가/수정/삭제\n• Google Maps 장소 검색 또는 링크 붙여넣기로 자동 입력\n• 드래그 앤 드롭으로 일정 순서 변경\n• 후보 장소를 드래그하여 원하는 위치에 삽입\n• 시작/종료 시간 클릭으로 인라인 수정\n• 이동 수단별 소요 시간 자동 계산\n• "+" 버튼으로 원하는 위치에 일정 추가',
+            reservations: '• 항공, 숙소, 식당, 교통 등 예약 정보 관리\n• 확정/대기/취소 상태 관리\n• 확정 예약은 지출 관리에 자동 반영\n• 유형별 필터로 빠르게 검색',
+            budget: '• 지출 내역 기록 및 카테고리별 분석\n• "확정 예약 포함" 옵션으로 예약 비용 자동 반영\n• "예상 비용 포함" 옵션으로 일정 비용 자동 반영\n• 멤버별 정산 (누가 누구에게 얼마) 자동 계산\n• 총 예산 설정 및 진행률 표시',
+            map: '• 전체 일정을 지도에 마커로 표시\n• 장소 검색 후 일정 또는 후보에 추가\n• 경로 보기로 이동 거리/시간 확인\n• 일차별 필터링\n• 후보 장소 관리 및 지도에서 바로 추가',
+            checklist: '• 카테고리별 준비물/할 일 체크리스트\n• 담당자 배정 가능\n• "담당자별" 보기로 담당자 기준 분류\n• 프리셋으로 빠른 카테고리 추가\n• 진행률 자동 계산',
+            journal: '• 여행 아이디어, 팁, 일기 등 자유롭게 기록\n• 태그로 분류\n• 작성 시간 자동 기록',
+            members: '• 여행 멤버 추가/수정/삭제\n• 본인 선택 후 "나" 배지 표시\n• 멤버별 지출 현황 확인\n• 활동 로그로 변경 내역 추적',
+            favorites: '• 일정에서 ♥ 표시한 장소를 모아보기\n• 이미지와 함께 카드형 표시',
+            weather: '• 여행지 도시명으로 현재 날씨 확인\n• 5일 예보 제공\n• 체감온도, 습도, 풍속, 일출/일몰 정보'
+        };
+
         const [title, subtitle] = titles[page] || ['', ''];
         document.getElementById('page-title').textContent = title;
         document.getElementById('page-subtitle').textContent = subtitle;
+
+        // 도움말 아이콘
+        let helpBtn = document.getElementById('page-help-btn');
+        if (!helpBtn) {
+            helpBtn = document.createElement('button');
+            helpBtn.id = 'page-help-btn';
+            helpBtn.className = 'btn-icon page-help-btn';
+            helpBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:1.1rem">help_outline</span>';
+            document.getElementById('page-title').parentElement.appendChild(helpBtn);
+        }
+        const helpText = helpTexts[page] || '';
+        helpBtn.setAttribute('data-help', helpText);
+        helpBtn.onmouseenter = showPageHelp;
+        helpBtn.onmouseleave = hidePageHelp;
+        helpBtn.onclick = (e) => {
+            const existing = document.getElementById('page-help-tooltip');
+            if (existing) { existing.remove(); return; }
+            showPageHelp.call(helpBtn, e);
+        };
+    }
+
+    function showPageHelp(e) {
+        hidePageHelp();
+        const text = this.getAttribute('data-help');
+        if (!text) return;
+        const tip = document.createElement('div');
+        tip.id = 'page-help-tooltip';
+        tip.className = 'page-help-tooltip';
+        tip.innerHTML = text.split('\n').map(line => `<div>${UI.escapeHtml(line)}</div>`).join('');
+        document.body.appendChild(tip);
+        const rect = this.getBoundingClientRect();
+        tip.style.top = (rect.bottom + 8) + 'px';
+        tip.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 320)) + 'px';
+    }
+
+    function hidePageHelp() {
+        const tip = document.getElementById('page-help-tooltip');
+        if (tip) tip.remove();
     }
 
     function renderPage(page) {
