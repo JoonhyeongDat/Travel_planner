@@ -979,7 +979,7 @@ const Itinerary = (() => {
         }).join('');
     }
 
-    function addCandidateToDay(candidateId, btnEl, directDayId) {
+    function addCandidateToDay(candidateId, btnEl, directDayId, insertIndex) {
         const trip = Store.getCurrentTrip();
         if (!trip) return;
         const candidate = (trip.candidates || []).find(c => c.id === candidateId);
@@ -1004,6 +1004,16 @@ const Itinerary = (() => {
             imageUrl: candidate.imageUrl || '',
             notes: candidate.notes || ''
         });
+
+        // insertIndex가 지정되면 해당 위치로 이동
+        if (typeof insertIndex === 'number' && insertIndex >= 0) {
+            const day = trip.days.find(d => d.id === dayId);
+            if (day && day.items.length > 1) {
+                const removed = day.items.pop();
+                day.items.splice(insertIndex, 0, removed);
+                Store.save();
+            }
+        }
 
         // 후보에서 제거
         Store.removeCandidate(trip.id, candidateId);

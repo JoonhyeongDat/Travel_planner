@@ -376,7 +376,18 @@ const UI = (() => {
         const dayCard = e.target.closest('[data-day-id]');
         if (dayCard && draggedCandidateId) {
             const toDayId = dayCard.dataset.dayId;
-            Itinerary.addCandidateToDay(draggedCandidateId, null, toDayId);
+            // 드롭 위치 계산
+            const overItem = e.target.closest('[data-item-id]');
+            let insertIndex = -1;
+            const toDay = trip.days.find(d => d.id === toDayId);
+            if (overItem && toDay) {
+                insertIndex = toDay.items.findIndex(i => i.id === overItem.dataset.itemId);
+                const rect = overItem.getBoundingClientRect();
+                if (e.clientY > rect.top + rect.height / 2) {
+                    insertIndex++;
+                }
+            }
+            Itinerary.addCandidateToDay(draggedCandidateId, null, toDayId, insertIndex);
             draggedCandidateId = null;
             return;
         }
