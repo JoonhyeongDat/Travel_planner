@@ -836,6 +836,38 @@ const Itinerary = (() => {
         ).join('');
 
         UI.showModal('일정 수정', `
+            <div class="form-group" style="background:var(--primary-bg);padding:16px;border-radius:var(--radius-md);border:1.5px dashed var(--primary-light)">
+                <label class="form-label" style="color:var(--primary);display:flex;align-items:center;gap:6px">
+                    <span class="material-symbols-rounded" style="font-size:1.1rem">search</span>
+                    Google Maps에서 장소 검색
+                </label>
+                <div style="display:flex;gap:8px">
+                    <input type="text" id="item-place-search" placeholder="장소명 검색 (예: 도쿄타워, 을지로 맛집...)" style="flex:1" />
+                    <button class="btn-primary btn-sm" id="btn-place-search" type="button" style="white-space:nowrap">
+                        <span class="material-symbols-rounded" style="font-size:1rem">search</span> 검색
+                    </button>
+                </div>
+                <div id="item-search-results" class="item-search-results" style="display:none;margin-top:8px;max-height:200px;overflow-y:auto;border:1px solid var(--border-light);border-radius:var(--radius-sm)"></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;margin:12px 0;color:var(--text-tertiary);font-size:0.8rem">
+                <div style="flex:1;height:1px;background:var(--border)"></div>
+                <span>또는 Google Maps 링크</span>
+                <div style="flex:1;height:1px;background:var(--border)"></div>
+            </div>
+            <div class="form-group">
+                <div style="display:flex;gap:8px">
+                    <input type="text" id="item-gmaps-link" placeholder="Google Maps 링크를 붙여넣으세요" style="flex:1" />
+                    <button class="btn-outline btn-sm" id="btn-parse-gmaps" type="button" style="white-space:nowrap">
+                        <span class="material-symbols-rounded" style="font-size:1rem">link</span> 자동 입력
+                    </button>
+                </div>
+                <div id="gmaps-parse-status" style="display:none;margin-top:8px;font-size:0.82rem;padding:8px 12px;border-radius:var(--radius-sm)"></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;margin:12px 0;color:var(--text-tertiary);font-size:0.8rem">
+                <div style="flex:1;height:1px;background:var(--border)"></div>
+                <span>직접 입력</span>
+                <div style="flex:1;height:1px;background:var(--border)"></div>
+            </div>
             <div class="form-group">
                 <label class="form-label">장소 / 일정명 *</label>
                 <input type="text" id="item-title" value="${UI.escapeHtml(item.title)}" />
@@ -869,8 +901,9 @@ const Itinerary = (() => {
                 <textarea id="item-notes">${UI.escapeHtml(item.notes)}</textarea>
             </div>
             <div class="form-group">
-                <label class="form-label">이미지 URL</label>
+                <label class="form-label">이미지 URL (선택)</label>
                 <input type="text" id="item-image" value="${UI.escapeHtml(item.imageUrl)}" />
+                <p class="form-hint">비워두시면 장소명으로 이미지를 자동 검색합니다</p>
             </div>
         `, `
             <button class="btn-outline" onclick="UI.closeModal()">취소</button>
@@ -878,12 +911,173 @@ const Itinerary = (() => {
         `);
 
         setTimeout(() => {
+            // ===== 장소 검색 기능 =====
+            let _searchPlaceData = null;
+            const searchInput = document.getElementById('item-place-search');
+            const searchBtn = document.getElementById('btn-place-search');
+            const searchResults = document.getElementById('item-search-results');
+
+            function doPlaceSearch() {
+                const q = searchInput.value.trim();
+                if (!q) return;
+                if (typeof google === 'undefined' || !google.maps) {
+                    UI.showToast('Google Maps API를 로드할 수 없습니다', 'warning');
+                    return;
+                }
+                let svcDiv = document.getElementById('_item-places-svc');
+                if (!svcDiv) { svcDiv = document.createElement('div'); svcDiv.id = '_item-places-svc'; document.body.appendChild(svcDiv); }
+                const svc = new google.maps.places.PlacesService(svcDiv);
+                searchResults.style.display = 'block';
+                searchResults.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-tertiary);font-size:0.8rem">검색 중...</div>';
+                svc.textSearch({ query: q }, (results, status) => {
+                    if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
+                        const max = Math.min(results.length, 8);
+                        searchResults.innerHTML = '';
+                        for (let i = 0; i < max; i++) {
+                            const p = results[i];
+                            const addr = p.formatted_address || p.vicinity || '';
+                            const rating = p.rating ? `⭐${p.rating}` : '';
+                            const div = document.createElement('div');
+                            div.className = 'item-search-result';
+                            div.innerHTML = `<div class="item-search-result-name">${UI.escapeHtml(p.name)}</div>
+                                <div class="item-search-result-meta">${rating} ${UI.escapeHtml(addr)}</div>`;
+                            div.addEventListener('click', () => selectSearchedPlace(p));
+                            searchResults.appendChild(div);
+                        }
+                    } else {
+                        searchResults.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-tertiary);font-size:0.8rem">검색 결과가 없습니다</div>';
+                    }
+                });
+            }
+
+            function selectSearchedPlace(place) {
+                const lat = place.geometry.location.lat();
+                const lng = place.geometry.location.lng();
+                document.getElementById('item-title').value = place.name || '';
+                document.getElementById('item-address').value = place.formatted_address || place.vicinity || '';
+                const types = place.types || [];
+                if (types.some(t => /restaurant|food|cafe|bakery|meal/.test(t))) {
+                    document.getElementById('item-category').value = 'food';
+                } else if (types.some(t => /lodging|hotel/.test(t))) {
+                    document.getElementById('item-category').value = 'accommodation';
+                } else if (types.some(t => /store|shop|mall/.test(t))) {
+                    document.getElementById('item-category').value = 'shopping';
+                } else if (types.some(t => /museum|art_gallery|amusement|zoo|aquarium/.test(t))) {
+                    document.getElementById('item-category').value = 'activity';
+                }
+                if (place.photos && place.photos[0]) {
+                    document.getElementById('item-image').value = place.photos[0].getUrl({ maxWidth: 400 });
+                }
+                _searchPlaceData = { lat, lng, placeId: place.place_id };
+                searchResults.style.display = 'none';
+                searchInput.value = place.name;
+                UI.showToast(`"${place.name}" 선택됨`, 'success');
+            }
+
+            searchBtn.addEventListener('click', doPlaceSearch);
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); doPlaceSearch(); }
+            });
+
+            // ===== Google Maps 링크 자동 파싱 =====
+            const gmapsInput = document.getElementById('item-gmaps-link');
+            const parseBtn = document.getElementById('btn-parse-gmaps');
+            const statusEl = document.getElementById('gmaps-parse-status');
+
+            function showParseStatus(message, type) {
+                statusEl.style.display = 'block';
+                statusEl.style.background = type === 'success' ? 'rgba(16,185,129,0.1)' : type === 'error' ? 'rgba(239,68,68,0.1)' : 'rgba(59,130,246,0.1)';
+                statusEl.style.color = type === 'success' ? 'var(--success)' : type === 'error' ? 'var(--danger)' : 'var(--info)';
+                statusEl.innerHTML = message;
+            }
+
+            async function handleGmapsParse() {
+                const url = gmapsInput.value.trim();
+                if (!url) {
+                    UI.showToast('Google Maps 링크를 입력해주세요', 'warning');
+                    return;
+                }
+                const parsed = UI.parseGoogleMapsUrl(url);
+                if (!parsed) {
+                    showParseStatus('⚠️ 유효한 Google Maps 링크가 아닙니다. 구글맵에서 복사한 링크를 붙여넣어주세요.', 'error');
+                    return;
+                }
+                showParseStatus('⏳ 장소 정보를 가져오는 중...', 'info');
+                parseBtn.disabled = true;
+                parseBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:1rem;animation:spin 1s linear infinite">progress_activity</span> 분석 중';
+
+                if (parsed.title) {
+                    document.getElementById('item-title').value = parsed.title;
+                }
+                if (parsed.address) {
+                    document.getElementById('item-address').value = parsed.address;
+                }
+                if (parsed.lat && parsed.lng) {
+                    _searchPlaceData = { lat: parsed.lat, lng: parsed.lng, placeId: parsed.placeId || null };
+                    const geo = await UI.reverseGeocode(parsed.lat, parsed.lng);
+                    if (geo) {
+                        if (!parsed.title && geo.name) {
+                            document.getElementById('item-title').value = geo.name;
+                        }
+                        if (geo.address) {
+                            document.getElementById('item-address').value = geo.address;
+                        }
+                        const titleVal = document.getElementById('item-title').value.toLowerCase();
+                        const addrVal = (geo.address || '').toLowerCase();
+                        if (/restaurant|식당|레스토랑|라멘|ramen|cafe|카페|coffee|bakery|베이커리/i.test(titleVal + ' ' + addrVal)) {
+                            document.getElementById('item-category').value = 'food';
+                        } else if (/hotel|호텔|hostel|inn|숙소|게스트하우스|리조트|resort|airbnb/i.test(titleVal)) {
+                            document.getElementById('item-category').value = 'accommodation';
+                        } else if (/museum|박물관|미술관|gallery|극장|theater|theatre/i.test(titleVal)) {
+                            document.getElementById('item-category').value = 'entertainment';
+                        } else if (/mall|마트|market|시장|쇼핑|shop|store|백화점/i.test(titleVal)) {
+                            document.getElementById('item-category').value = 'shopping';
+                        }
+                    }
+                    const titleForImg = document.getElementById('item-title').value;
+                    if (titleForImg && !document.getElementById('item-image').value) {
+                        document.getElementById('item-image').value = UI.getPlaceImage(titleForImg);
+                    }
+                    showParseStatus(
+                        `✅ 장소 정보를 가져왔습니다!<br><strong>${UI.escapeHtml(document.getElementById('item-title').value)}</strong>` +
+                        `<br><span style="font-size:0.75rem;opacity:0.7">📍 ${parsed.lat.toFixed(5)}, ${parsed.lng.toFixed(5)}</span>`,
+                        'success'
+                    );
+                } else if (parsed.title) {
+                    if (!document.getElementById('item-image').value) {
+                        document.getElementById('item-image').value = UI.getPlaceImage(parsed.title);
+                    }
+                    showParseStatus(
+                        `✅ 장소명을 가져왔습니다: <strong>${UI.escapeHtml(parsed.title)}</strong>` +
+                        `<br><span style="font-size:0.75rem;opacity:0.7">주소와 추가 정보를 직접 입력해주세요</span>`,
+                        'success'
+                    );
+                } else {
+                    showParseStatus('⚠️ 링크에서 장소 정보를 추출하지 못했습니다. 직접 입력해주세요.', 'error');
+                }
+
+                parseBtn.disabled = false;
+                parseBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:1rem">auto_fix_high</span> 자동 입력';
+            }
+
+            parseBtn.onclick = handleGmapsParse;
+            gmapsInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); handleGmapsParse(); }
+            });
+            gmapsInput.addEventListener('paste', () => {
+                setTimeout(handleGmapsParse, 100);
+            });
+
+            // ===== 저장 =====
             document.getElementById('btn-save-item').onclick = () => {
                 const title = document.getElementById('item-title').value.trim();
                 if (!title) {
                     UI.showToast('장소명을 입력해주세요', 'warning');
                     return;
                 }
+                const imageUrl = document.getElementById('item-image').value.trim() || UI.getPlaceImage(title, document.getElementById('item-category').value);
+                const gmapsParsed = UI.parseGoogleMapsUrl((gmapsInput ? gmapsInput.value : '').trim());
+
                 Store.updateItineraryItem(trip.id, dayId, itemId, {
                     title,
                     category: document.getElementById('item-category').value,
@@ -892,7 +1086,10 @@ const Itinerary = (() => {
                     address: document.getElementById('item-address').value.trim(),
                     notes: document.getElementById('item-notes').value.trim(),
                     cost: Number(document.getElementById('item-cost').value) || 0,
-                    imageUrl: document.getElementById('item-image').value.trim()
+                    imageUrl,
+                    lat: _searchPlaceData?.lat || gmapsParsed?.lat || item.lat || null,
+                    lng: _searchPlaceData?.lng || gmapsParsed?.lng || item.lng || null,
+                    placeId: _searchPlaceData?.placeId || gmapsParsed?.placeId || item.placeId || null
                 });
                 UI.closeModal();
                 render();
