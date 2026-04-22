@@ -1051,13 +1051,81 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
 .travel-connector {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 6px 16px 6px 72px;
-    font-size: 0.78rem;
-    color: var(--text-tertiary);
+    gap: 12px;
+    padding: 4px 16px 4px 72px;
+    position: relative;
 }
-.travel-connector .material-symbols-rounded {
+.travel-connector-line {
+    position: absolute;
+    left: 99px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--border);
+}
+.travel-modes {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-full);
+    padding: 4px 6px;
+    z-index: 1;
+}
+.travel-mode-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border: 1.5px solid var(--border-light);
+    border-radius: var(--radius-full);
+    background: var(--bg-primary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+}
+.travel-mode-btn .material-symbols-rounded {
     font-size: 1rem;
+}
+.travel-mode-btn:hover {
+    border-color: var(--primary-light);
+    color: var(--primary);
+    background: var(--primary-bg);
+}
+.travel-mode-btn.selected {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: #fff;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(var(--primary-rgb, 99,102,241), 0.3);
+}
+.travel-mode-btn.selected .material-symbols-rounded {
+    color: #fff;
+}
+.travel-mode-time {
+    font-weight: 600;
+    font-size: 0.75rem;
+}
+.travel-loading-text {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    padding: 4px 10px;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+.travel-no-data {
+    color: var(--text-tertiary);
+    display: flex;
+    align-items: center;
+}
+.travel-no-data .material-symbols-rounded {
+    font-size: 1.2rem;
 }
 
 /* --- 예약 관리 --- */
@@ -2502,6 +2570,19 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     .item-image {
         width: 60px;
         height: 60px;
+    }
+    .travel-connector {
+        padding-left: 40px;
+    }
+    .travel-connector-line {
+        left: 67px;
+    }
+    .travel-modes {
+        flex-wrap: wrap;
+    }
+    .travel-mode-btn {
+        padding: 3px 8px;
+        font-size: 0.7rem;
     }
 
     .reservations-grid {

@@ -31,12 +31,8 @@ const Itinerary = (() => {
             ? day.items.map((item, idx) => {
                 const next = day.items[idx + 1];
                 let connector = '';
-                if (next && item.travelDuration) {
-                    const modeIcons = { walking: 'directions_walk', driving: 'directions_car', transit: 'directions_transit' };
-                    connector = `<div class="travel-connector">
-                        <span class="material-symbols-rounded">${modeIcons[item.travelMode] || 'arrow_downward'}</span>
-                        <span>${item.travelDuration || ''}</span>
-                    </div>`;
+                if (next) {
+                    connector = renderTravelConnector(item, next, day.id);
                 }
                 return renderItem(item, day.id) + connector;
             }).join('')
@@ -120,6 +116,124 @@ const Itinerary = (() => {
                     </button>
                 </div>
             </div>`;
+    }
+
+    // ===== 이동 시간 커넥터 =====
+    function renderTravelConnector(fromItem, toItem, dayId) {
+        const info = fromItem.travelInfo;
+        const pairKey = `${fromItem.id}_${toItem.id}`;
+        const hasCoords = fromItem.lat && fromItem.lng && toItem.lat && toItem.lng;
+
+        if (!info && hasCoords) {
+            // 아직 데이터 없으면 로딩 표시 + 자동 계산 트리거
+            setTimeout(() => fetchTravelTimes(fromItem, toItem, dayId), 100);
+            return `<div class="travel-connector travel-connector-loading" data-pair="${pairKey}">
+                <div class="travel-connector-line"></div>
+                <div class="travel-modes">
+                    <span class="travel-loading-text">이동 시간 계산 중...</span>
+                </div>
+            </div>`;
+        }
+
+        if (!info) {
+            return `<div class="travel-connector travel-connector-empty" data-pair="${pairKey}">
+                <div class="travel-connector-line"></div>
+                <div class="travel-modes">
+                    <span class="travel-no-data"><span class="material-symbols-rounded">more_vert</span></span>
+                </div>
+            </div>`;
+        }
+
+        const modes = [
+            { key: 'walking', icon: 'directions_walk', label: '도보' },
+            { key: 'driving', icon: 'directions_car', label: '차량' },
+            { key: 'transit', icon: 'directions_transit', label: '대중교통' }
+        ];
+
+        const selectedMode = info.selectedMode || '';
+
+        const modesHTML = modes.map(m => {
+            const data = info[m.key];
+            if (!data) return '';
+            const isSelected = selectedMode === m.key;
+            return `<button class="travel-mode-btn ${isSelected ? 'selected' : ''}" 
+                data-mode="${m.key}" data-from="${fromItem.id}" data-day="${dayId}"
+                onclick="Itinerary.selectTravelMode('${dayId}','${fromItem.id}','${m.key}')"
+                title="${m.label}: ${data.duration} (${data.distance})">
+                <span class="material-symbols-rounded">${m.icon}</span>
+                <span class="travel-mode-time">${data.duration}</span>
+            </button>`;
+        }).join('');
+
+        return `<div class="travel-connector" data-pair="${pairKey}">
+            <div class="travel-connector-line"></div>
+            <div class="travel-modes">${modesHTML}</div>
+        </div>`;
+    }
+
+    // Directions API로 이동 시간 조회
+    const _fetchedPairs = new Set();
+    function fetchTravelTimes(fromItem, toItem, dayId) {
+        const pairKey = `${fromItem.id}_${toItem.id}`;
+        if (_fetchedPairs.has(pairKey)) return;
+        _fetchedPairs.add(pairKey);
+
+        if (typeof google === 'undefined' || !google.maps) return;
+
+        const service = new google.maps.DirectionsService();
+        const origin = { lat: fromItem.lat, lng: fromItem.lng };
+        const dest = { lat: toItem.lat, lng: toItem.lng };
+        const modes = ['WALKING', 'DRIVING', 'TRANSIT'];
+        const results = {};
+        let done = 0;
+
+        modes.forEach(mode => {
+            service.route({
+                origin, destination: dest,
+                travelMode: google.maps.TravelMode[mode]
+            }, (res, status) => {
+                if (status === 'OK' && res.routes[0]) {
+                    const leg = res.routes[0].legs[0];
+                    results[mode.toLowerCase()] = {
+                        duration: leg.duration.text,
+                        durationValue: leg.duration.value,
+                        distance: leg.distance.text
+                    };
+                }
+                done++;
+                if (done === modes.length && Object.keys(results).length > 0) {
+                    // 가장 짧은 모드를 기본 선택
+                    let shortest = null, shortestVal = Infinity;
+                    for (const [k, v] of Object.entries(results)) {
+                        if (v.durationValue < shortestVal) {
+                            shortestVal = v.durationValue;
+                            shortest = k;
+                        }
+                    }
+                    results.selectedMode = shortest;
+                    const trip = Store.getCurrentTrip();
+                    if (trip) {
+                        Store.updateItineraryItem(trip.id, dayId, fromItem.id, { travelInfo: results });
+                        render();
+                    }
+                }
+            });
+        });
+    }
+
+    // 이동 수단 선택
+    function selectTravelMode(dayId, itemId, mode) {
+        const trip = Store.getCurrentTrip();
+        if (!trip) return;
+        const day = trip.days.find(d => d.id === dayId);
+        if (!day) return;
+        const item = day.items.find(i => i.id === itemId);
+        if (!item || !item.travelInfo) return;
+        Store.updateItineraryItem(trip.id, dayId, itemId, {
+            travelInfo: { ...item.travelInfo, selectedMode: mode }
+        });
+        _fetchedPairs.clear();
+        render();
     }
 
     function addDay() {
@@ -493,7 +607,8 @@ const Itinerary = (() => {
     return {
         render, addDay, removeDay,
         showAddItemModal, showEditItemModal,
-        removeItem, toggleFavorite, addComment
+        removeItem, toggleFavorite, addComment,
+        selectTravelMode
     };
 })();
 
@@ -2216,6 +2331,7 @@ const MapView = (() => {
                 address: document.getElementById('map-add-address').value,
                 lat: placeData.lat,
                 lng: placeData.lng,
+                placeId: placeData.placeId || null,
                 imageUrl: placeData.imageUrl || '',
                 cost: parseFloat(document.getElementById('map-add-cost').value) || 0,
                 notes: document.getElementById('map-add-notes').value.trim()

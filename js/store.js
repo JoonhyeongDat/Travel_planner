@@ -73,11 +73,13 @@ const Store = (() => {
             address: data.address || '',
             lat: data.lat || null,
             lng: data.lng || null,
+            placeId: data.placeId || null,
             imageUrl: data.imageUrl || '',
             notes: data.notes || '',
             cost: data.cost || 0,
             travelMode: data.travelMode || '', // walking, driving, transit
             travelDuration: data.travelDuration || '',
+            travelInfo: data.travelInfo || null, // { walking: {duration,distance}, driving: {...}, transit: {...}, selectedMode: 'walking'|'driving'|'transit' }
             comments: [],
             isFavorite: false,
             createdAt: new Date().toISOString()
