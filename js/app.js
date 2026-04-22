@@ -52,7 +52,7 @@ const App = (() => {
         const ok = FirebaseSync.init();
         if (!ok) return;
 
-        // 서버에서 초기 데이터 가져오기
+        // 서버에서 초기 데이터 가져오기 (완료 전까지 push 차단)
         FirebaseSync.pullData().then(remoteData => {
             if (remoteData && remoteData.trips && remoteData.trips.length > 0) {
                 // 원격 데이터가 있으면 로컬 데이터와 병합
@@ -75,6 +75,11 @@ const App = (() => {
                 renderCurrentPage();
             }
 
+            // pullData 완료 → 이제 push 허용
+            FirebaseSync.setReady(true);
+            // 로컬 데이터를 Firebase에 동기화 (병합 결과 반영)
+            Store.save();
+
             // 실시간 리스너 시작 (pullData 완료 후)
             FirebaseSync.startListening((newData) => {
                 const prevTripId = Store.getData().currentTripId;
@@ -93,6 +98,7 @@ const App = (() => {
             });
         }).catch(err => {
             console.error('[Firebase] 초기 데이터 로드 실패:', err);
+            FirebaseSync.setReady(true);
             // 오프라인에서도 정상 동작
             FirebaseSync.startListening((newData) => {
                 Store.applyRemoteData(newData);

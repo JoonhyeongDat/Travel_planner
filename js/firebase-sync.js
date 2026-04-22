@@ -10,6 +10,7 @@ const FirebaseSync = (() => {
     let _lastWriteTime = 0;
     let _initialFire = true; // onValue 최초 발생 무시용
     let _debounceTimer = null;
+    let _ready = false; // pullData 완료 전까지 push 차단
 
     function init() {
         try {
@@ -78,9 +79,11 @@ const FirebaseSync = (() => {
         return data;
     }
 
+    function setReady(val) { _ready = val; }
+
     // 전체 데이터를 Firebase에 저장
     function pushData(data) {
-        if (!db) return;
+        if (!db || !_ready) return;
         _suppressRemote = true;
         _lastWriteTime = Date.now();
         const cleanData = JSON.parse(JSON.stringify(data));
@@ -144,6 +147,7 @@ const FirebaseSync = (() => {
         pushData,
         startListening,
         pullData,
-        isConnected
+        isConnected,
+        setReady
     };
 })();
