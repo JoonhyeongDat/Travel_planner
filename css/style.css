@@ -669,6 +669,30 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     margin-top: 4px;
     font-size: 1rem;
 }
+.trip-hero-edit-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 2;
+    background: rgba(255,255,255,0.2);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: #fff;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.trip-hero-edit-btn:hover {
+    background: rgba(255,255,255,0.4);
+}
+.trip-hero-edit-btn .material-symbols-rounded {
+    font-size: 18px;
+}
 
 /* 통계 카드 */
 .dash-stats {

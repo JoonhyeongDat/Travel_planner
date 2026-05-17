@@ -232,6 +232,7 @@ const App = (() => {
 
         // 일정 페이지 버튼
         document.getElementById('btn-add-day').addEventListener('click', () => Itinerary.addDay());
+        document.getElementById('btn-edit-trip').addEventListener('click', () => showEditTripModal());
         Itinerary.initCandidatesPanel();
 
         // 일정 뷰 전환
@@ -804,6 +805,106 @@ const App = (() => {
                 UI.showToast(`"${name}" 여행이 생성되었습니다!`, 'success');
             };
             document.getElementById('new-trip-name').focus();
+        }, 50);
+    }
+
+    // ---- 여행 정보 수정 ----
+    function showEditTripModal() {
+        const trip = Store.getCurrentTrip();
+        if (!trip) { UI.showToast('선택된 여행이 없습니다', 'warning'); return; }
+
+        const themeButtons = [
+            { key: 'city', icon: '🏙️', label: '도시' },
+            { key: 'beach', icon: '🏖️', label: '해변' },
+            { key: 'nature', icon: '🏔️', label: '자연' },
+            { key: 'europe', icon: '🏰', label: '유럽' },
+            { key: 'japan', icon: '⛩️', label: '일본' },
+            { key: 'luxury', icon: '💎', label: '럭셔리' },
+            { key: 'backpacking', icon: '🎒', label: '배낭' },
+            { key: 'tropical', icon: '🌺', label: '열대' }
+        ];
+
+        const themeBtns = themeButtons.map(t =>
+            `<label class="form-checkbox-label" style="cursor:pointer">
+                <input type="radio" name="edit-trip-theme" value="${t.key}" ${t.key === (trip.theme || 'city') ? 'checked' : ''} style="display:none" />
+                <span>${t.icon} ${t.label}</span>
+            </label>`
+        ).join('');
+
+        UI.showModal('여행 정보 수정', `
+            <div class="form-group">
+                <label class="form-label">여행 이름 *</label>
+                <input type="text" id="edit-trip-name" value="${UI.escapeHtml(trip.name)}" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">여행지</label>
+                <input type="text" id="edit-trip-dest" value="${UI.escapeHtml(trip.destination || '')}" placeholder="예: 도쿄, 오사카" />
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">출발일</label>
+                    <input type="date" id="edit-trip-start" value="${trip.startDate || ''}" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">도착일</label>
+                    <input type="date" id="edit-trip-end" value="${trip.endDate || ''}" />
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">커버 이미지 URL</label>
+                <input type="text" id="edit-trip-cover" value="${UI.escapeHtml(trip.coverImage || '')}" placeholder="이미지 URL을 붙여넣으세요" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">여행 테마</label>
+                <div class="form-checkbox-group">${themeBtns}</div>
+            </div>
+        `, `
+            <button class="btn-outline" onclick="UI.closeModal()">취소</button>
+            <button class="btn-primary" id="btn-save-edit-trip">저장</button>
+        `);
+
+        setTimeout(() => {
+            document.getElementById('btn-save-edit-trip').onclick = () => {
+                const name = document.getElementById('edit-trip-name').value.trim();
+                if (!name) { UI.showToast('여행 이름을 입력해주세요', 'warning'); return; }
+
+                const themeRadio = document.querySelector('input[name="edit-trip-theme"]:checked');
+                const theme = themeRadio ? themeRadio.value : trip.theme || 'city';
+
+                const newStart = document.getElementById('edit-trip-start').value;
+                const newEnd = document.getElementById('edit-trip-end').value;
+
+                Store.updateTrip(trip.id, {
+                    name,
+                    destination: document.getElementById('edit-trip-dest').value.trim(),
+                    startDate: newStart,
+                    endDate: newEnd,
+                    coverImage: document.getElementById('edit-trip-cover').value.trim(),
+                    theme
+                });
+
+                // 날짜 변경 시 기존 일차 날짜 업데이트
+                if (newStart) {
+                    const updatedTrip = Store.getCurrentTrip();
+                    if (updatedTrip && updatedTrip.days.length > 0) {
+                        const startD = new Date(newStart);
+                        updatedTrip.days.forEach((day, i) => {
+                            const d = new Date(startD);
+                            d.setDate(d.getDate() + i);
+                            day.date = d.toISOString().split('T')[0];
+                        });
+                        Store.updateTrip(trip.id, { days: updatedTrip.days });
+                    }
+                }
+
+                setTheme(theme);
+                UI.closeModal();
+                loadTripList();
+                updateDashboard();
+                renderCurrentPage();
+                UI.showToast('여행 정보가 수정되었습니다', 'success');
+            };
+            document.getElementById('edit-trip-name').focus();
         }, 50);
     }
 
