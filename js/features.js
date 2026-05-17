@@ -67,6 +67,9 @@ const Itinerary = (() => {
                         <span class="day-title-text" onclick="Itinerary.editDayTitle(event,'${day.id}')" title="클릭하여 제목 수정">${day.customTitle ? UI.escapeHtml(day.customTitle) : ''}</span>
                     </div>
                     <div class="day-header-right">
+                        <button class="btn-icon" onclick="Itinerary.insertDayBefore('${day.id}')" title="이 앞에 일차 삽입">
+                            <span class="material-symbols-rounded">playlist_add</span>
+                        </button>
                         <button class="btn-icon" onclick="Itinerary.showAddItemModal('${day.id}')" title="일정 추가">
                             <span class="material-symbols-rounded">add</span>
                         </button>
@@ -525,6 +528,17 @@ const Itinerary = (() => {
                 UI.showToast('일차가 삭제되었습니다', 'success');
             }
         });
+    }
+
+    function insertDayBefore(dayId) {
+        const trip = Store.getCurrentTrip();
+        if (!trip) return;
+        const idx = trip.days.findIndex(d => d.id === dayId);
+        if (idx < 0) return;
+        Store.insertDay(trip.id, idx);
+        render();
+        App.updateDashboard();
+        UI.showToast(`Day ${idx + 1}이 삽입되었습니다`, 'success');
     }
 
     function showAddItemModal(dayId, insertIndex) {
@@ -1667,7 +1681,7 @@ const Itinerary = (() => {
     }
 
     return {
-        render, addDay, removeDay,
+        render, addDay, removeDay, insertDayBefore,
         showAddItemModal, showEditItemModal,
         removeItem, toggleFavorite, addComment, editTimeInline, editDayTitle,
         selectTravelMode, editTravelTime, moveItemToCandidate,

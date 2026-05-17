@@ -255,6 +255,30 @@ const Store = (() => {
             save(_data);
             return day;
         },
+        insertDay: (tripId, position) => {
+            const trip = _data.trips.find(t => t.id === tripId);
+            if (!trip) return null;
+            const idx = Math.max(0, Math.min(position, trip.days.length));
+            let date = '';
+            if (trip.startDate) {
+                const start = new Date(trip.startDate);
+                start.setDate(start.getDate() + idx);
+                date = start.toISOString().split('T')[0];
+            }
+            const day = createDay(idx + 1, date);
+            trip.days.splice(idx, 0, day);
+            // 번호·날짜 재정렬
+            trip.days.forEach((d, i) => {
+                d.dayNumber = i + 1;
+                if (trip.startDate) {
+                    const s = new Date(trip.startDate);
+                    s.setDate(s.getDate() + i);
+                    d.date = s.toISOString().split('T')[0];
+                }
+            });
+            save(_data);
+            return day;
+        },
         removeDay: (tripId, dayId) => {
             const trip = _data.trips.find(t => t.id === tripId);
             if (!trip) return;
