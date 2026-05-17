@@ -1,7 +1,8 @@
 // 일본 도쿄+알펜루트 5일 여행 데이터 시드
 (function seedJapanTrip() {
-    // 이미 시드된 경우 중복 방지
-    if (localStorage.getItem('japan_trip_seeded')) return;
+    // 이미 동일 이름 여행이 존재하면 시드 스킵
+    const existingTrips = Store.getTrips();
+    if (existingTrips.some(t => t.name === '도쿄 + 알펜루트 5일')) return;
 
     const trip = Store.addTrip('도쿄 + 알펜루트 5일', '도쿄, 일본', '2026-05-25', '2026-05-29', 'city');
     const tid = trip.id;
@@ -113,6 +114,5 @@
     Store.addChecklistItem(tid, c4.id, '트래블 체크카드 충전');
 
     // 시드 완료 표시
-    localStorage.setItem('japan_trip_seeded', 'true');
     console.log('✅ 일본 여행 데이터 시드 완료!');
 })();

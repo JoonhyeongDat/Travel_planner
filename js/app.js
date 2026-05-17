@@ -6,8 +6,41 @@
 const App = (() => {
     let currentPage = 'dashboard';
 
+    // ---- 중복 여행 제거 ----
+    function deduplicateTrips() {
+        const trips = Store.getTrips();
+        const nameMap = {};
+        trips.forEach(t => {
+            if (!nameMap[t.name]) {
+                nameMap[t.name] = [];
+            }
+            nameMap[t.name].push(t);
+        });
+        const currentTripId = Store.getData().currentTripId;
+        Object.values(nameMap).forEach(group => {
+            if (group.length <= 1) return;
+            // 가장 최근 수정된 여행을 유지 (updatedAt 기준)
+            group.sort((a, b) => {
+                const ta = a.updatedAt || a.createdAt || '';
+                const tb = b.updatedAt || b.createdAt || '';
+                return tb.localeCompare(ta);
+            });
+            // 현재 선택된 여행이 그룹에 있으면 그것을 최우선 유지
+            const currentIdx = group.findIndex(t => t.id === currentTripId);
+            const keepTrip = currentIdx >= 0 ? group[currentIdx] : group[0];
+            group.forEach(t => {
+                if (t.id !== keepTrip.id) {
+                    Store.deleteTrip(t.id);
+                }
+            });
+        });
+    }
+
     // ---- 초기화 ----
     function init() {
+        // 중복 여행 정리
+        deduplicateTrips();
+
         // 스플래시 화면
         setTimeout(() => {
             const splash = document.getElementById('splash-screen');
@@ -72,6 +105,7 @@ const App = (() => {
                 }
 
                 Store.loadRemoteData(remoteData);
+                deduplicateTrips();
                 loadTripList();
                 updateDashboard();
                 renderCurrentPage();
@@ -93,6 +127,7 @@ const App = (() => {
                         Store.getData().currentTripId = prevTripId;
                     }
                 }
+                deduplicateTrips();
                 loadTripList();
                 updateDashboard();
                 renderCurrentPage();

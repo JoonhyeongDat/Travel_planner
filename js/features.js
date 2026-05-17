@@ -1501,8 +1501,9 @@ const Reservations = (() => {
                 <div class="reservation-card-body">
                     <div class="reservation-detail">
                         <span class="material-symbols-rounded">calendar_today</span>
-                        <span>${UI.formatDate(res.date)}${res.time ? ' ' + res.time : ''}${res.endDate ? ' ~ ' + UI.formatDate(res.endDate) : ''}</span>
+                        <span>${UI.formatDate(res.date)}${res.time ? ' ' + res.time : ''}${res.endTime ? ' ~ ' + res.endTime : ''}${res.endDate ? ' ~ ' + UI.formatDate(res.endDate) : ''}</span>
                     </div>
+                    ${res.bookedBy ? `<div class="reservation-detail"><span class="material-symbols-rounded">person</span><span>예약자: ${UI.escapeHtml(res.bookedBy)}</span></div>` : ''}
                     ${res.location ? `<div class="reservation-detail"><span class="material-symbols-rounded">location_on</span><span>${UI.escapeHtml(res.location)}</span></div>` : ''}
                     ${res.cost ? `<div class="reservation-detail"><span class="material-symbols-rounded">payments</span><span>${UI.formatCurrency(res.cost)}</span></div>` : ''}
                     ${detailsHTML}
@@ -1562,8 +1563,18 @@ const Reservations = (() => {
                     <input type="date" id="res-end-date" />
                 </div>
                 <div class="form-group">
+                    <label class="form-label">종료 시간</label>
+                    <input type="time" id="res-end-time" />
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
                     <label class="form-label">비용</label>
                     <input type="number" id="res-cost" placeholder="0" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">예약자</label>
+                    <input type="text" id="res-booked-by" placeholder="예약자 이름" />
                 </div>
             </div>
             <div class="form-group">
@@ -1595,9 +1606,11 @@ const Reservations = (() => {
                     date: document.getElementById('res-date').value,
                     time: document.getElementById('res-time').value,
                     endDate: document.getElementById('res-end-date').value,
+                    endTime: document.getElementById('res-end-time').value,
                     location: document.getElementById('res-location').value.trim(),
                     confirmationNumber: document.getElementById('res-confirmation').value.trim(),
                     cost: Number(document.getElementById('res-cost').value) || 0,
+                    bookedBy: document.getElementById('res-booked-by').value.trim(),
                     notes: document.getElementById('res-notes').value.trim()
                 });
 
@@ -1654,8 +1667,18 @@ const Reservations = (() => {
                     <input type="date" id="res-end-date" value="${res.endDate || ''}" />
                 </div>
                 <div class="form-group">
+                    <label class="form-label">종료 시간</label>
+                    <input type="time" id="res-end-time" value="${res.endTime || ''}" />
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
                     <label class="form-label">비용</label>
                     <input type="number" id="res-cost" value="${res.cost || ''}" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">예약자</label>
+                    <input type="text" id="res-booked-by" value="${UI.escapeHtml(res.bookedBy || '')}" />
                 </div>
             </div>
             <div class="form-group">
@@ -1687,9 +1710,11 @@ const Reservations = (() => {
                     date: document.getElementById('res-date').value,
                     time: document.getElementById('res-time').value,
                     endDate: document.getElementById('res-end-date').value,
+                    endTime: document.getElementById('res-end-time').value,
                     location: document.getElementById('res-location').value.trim(),
                     confirmationNumber: document.getElementById('res-confirmation').value.trim(),
                     cost: Number(document.getElementById('res-cost').value) || 0,
+                    bookedBy: document.getElementById('res-booked-by').value.trim(),
                     notes: document.getElementById('res-notes').value.trim()
                 });
 

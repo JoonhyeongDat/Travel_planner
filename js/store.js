@@ -104,6 +104,7 @@ const Store = (() => {
             notes: data.notes || '',
             cost: data.cost || 0,
             status: data.status || 'confirmed', // confirmed, pending, cancelled
+            bookedBy: data.bookedBy || '',
             details: data.details || {},
             createdAt: new Date().toISOString()
         };
