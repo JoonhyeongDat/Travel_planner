@@ -656,10 +656,11 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     margin-bottom: 12px;
 }
 .trip-hero-content h2 {
-    font-size: 1.8rem;
-    font-weight: 800;
+    font-family: 'Jua', 'Noto Sans KR', sans-serif;
+    font-size: 2rem;
+    font-weight: 400;
     margin-bottom: 6px;
-    letter-spacing: -0.5px;
+    letter-spacing: 1px;
 }
 .trip-hero-content p {
     opacity: 0.85;
@@ -1491,38 +1492,53 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     color: var(--text-secondary);
 }
 .day-title-text {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--text-primary);
+    font-family: 'Jua', 'Noto Sans KR', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 400;
+    color: #fff;
     cursor: pointer;
-    padding: 2px 8px;
-    border-radius: var(--radius-sm);
-    border: 1px dashed transparent;
-    transition: border-color 0.2s, background 0.2s;
+    padding: 3px 12px;
+    border-radius: 20px;
+    background: var(--primary);
+    border: none;
+    transition: background 0.2s, transform 0.2s;
     min-width: 40px;
     display: inline-block;
+    letter-spacing: 0.5px;
+}
+.day-title-text:empty {
+    background: transparent;
+    border: 1px dashed var(--border);
 }
 .day-title-text:empty::before {
     content: '+ 제목';
     color: var(--text-tertiary);
+    font-family: 'Noto Sans KR', sans-serif;
     font-weight: 400;
     font-size: 0.8rem;
 }
 .day-title-text:hover {
-    border-color: var(--border);
+    background: var(--primary-dark, #3730a3);
+    transform: scale(1.03);
+}
+.day-title-text:empty:hover {
     background: var(--bg-secondary);
+    border-color: var(--primary-light);
+    transform: none;
 }
 .day-title-input {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--text-primary);
+    font-family: 'Jua', 'Noto Sans KR', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 400;
+    color: var(--primary);
     border: 2px solid var(--primary);
-    border-radius: var(--radius-sm);
-    padding: 2px 8px;
+    border-radius: 20px;
+    padding: 3px 12px;
     background: #fff;
     outline: none;
-    width: 160px;
+    width: 180px;
     box-shadow: 0 0 0 3px rgba(79,70,229,0.15);
+    letter-spacing: 0.5px;
 }
 .day-header-right {
     display: flex;
