@@ -1227,6 +1227,18 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     white-space: nowrap;
     box-shadow: 0 1px 3px rgba(0,0,0,0.3);
 }
+.map-place-to-candidate {
+    flex-shrink: 0;
+    color: var(--text-tertiary);
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+.map-place-item:hover .map-place-to-candidate {
+    opacity: 1;
+}
+.map-place-to-candidate:hover {
+    color: #F472B6 !important;
+}
 
 /* 지도 장소 목록 하이라이트 */
 .map-place-highlight {

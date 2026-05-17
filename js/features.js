@@ -3389,6 +3389,9 @@ const MapView = (() => {
                         <div class="map-place-name">${UI.escapeHtml(p.title)} <span class="map-cat-badge" style="background:${catInfo.color}15;color:${catInfo.color}">${catInfo.icon} ${catInfo.label}</span></div>
                         <div class="map-place-address">Day ${p.dayNumber} · ${UI.escapeHtml(p.address || '')}</div>
                     </div>
+                    <button class="btn-icon-sm map-place-to-candidate" title="후보로 이동" onclick="event.stopPropagation();MapView.moveToCandidate('${p.dayId}','${p.id}')">
+                        <span class="material-symbols-rounded">remove_circle_outline</span>
+                    </button>
                 </div>`;
         }).join('');
     }
@@ -3887,6 +3890,32 @@ const MapView = (() => {
         UI.showToast('후보에서 삭제됨', 'info');
     }
 
+    function moveToCandidate(dayId, itemId) {
+        const trip = Store.getCurrentTrip();
+        if (!trip) return;
+        const day = trip.days.find(d => d.id === dayId);
+        if (!day) return;
+        const item = day.items.find(i => i.id === itemId);
+        if (!item) return;
+
+        Store.addCandidate(trip.id, {
+            title: item.title,
+            category: item.category,
+            address: item.address,
+            lat: item.lat,
+            lng: item.lng,
+            imageUrl: item.imageUrl,
+            placeId: item.placeId || null,
+            rating: null,
+            notes: item.notes,
+            votes: item.candidateVotes || []
+        });
+
+        Store.removeItineraryItem(trip.id, dayId, itemId);
+        UI.showToast(`"${item.title}" 후보로 이동됨`, 'success');
+        render();
+    }
+
     function setMapCandidateCatFilter(val) {
         mapCandidateCatFilter = val;
         renderCandidatesList();
@@ -4354,5 +4383,5 @@ const MapView = (() => {
     return { render, initGoogleMap, focusMarker, showRoute, setFilter, switchTab,
              searchPlace, addCandidateToItinerary, focusCandidate, removeCandidate,
              selectSearchResult, closeSearchResults, toggleCandidateMarkers,
-             setMapCandidateCatFilter, voteMapCandidate };
+             setMapCandidateCatFilter, voteMapCandidate, moveToCandidate };
 })();
