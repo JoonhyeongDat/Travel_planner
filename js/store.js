@@ -625,6 +625,7 @@ const Store = (() => {
                 notes: data.notes || '',
                 placeId: data.placeId || '',
                 rating: data.rating || null,
+                votes: data.votes || [],
                 createdAt: new Date().toISOString()
             };
             trip.candidates.push(candidate);

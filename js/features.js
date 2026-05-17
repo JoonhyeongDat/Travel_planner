@@ -1397,7 +1397,8 @@ const Itinerary = (() => {
             lng: candidate.lng,
             placeId: candidate.placeId || null,
             imageUrl: candidate.imageUrl || '',
-            notes: candidate.notes || ''
+            notes: candidate.notes || '',
+            candidateVotes: candidate.votes || []
         });
 
         // insertIndex가 지정되면 해당 위치로 이동
@@ -1433,7 +1434,7 @@ const Itinerary = (() => {
         const item = day.items.find(i => i.id === itemId);
         if (!item) return;
 
-        // 후보에 추가
+        // 후보에 추가 (투표 내역 보존)
         Store.addCandidate(trip.id, {
             title: item.title,
             category: item.category,
@@ -1443,7 +1444,8 @@ const Itinerary = (() => {
             imageUrl: item.imageUrl,
             placeId: item.placeId || null,
             rating: null,
-            notes: item.notes
+            notes: item.notes,
+            votes: item.candidateVotes || []
         });
 
         // 일정에서 제거
@@ -3736,7 +3738,7 @@ const MapView = (() => {
     }
 
     // ===== 일정에 추가 모달 =====
-    function showAddToItineraryModal(placeData) {
+    function showAddToItineraryModal(placeData, removeCandidateId) {
         const trip = Store.getCurrentTrip();
         if (!trip || trip.days.length === 0) {
             UI.showToast('먼저 일정(Day)을 추가해주세요', 'warning');
@@ -3810,8 +3812,14 @@ const MapView = (() => {
                 placeId: placeData.placeId || null,
                 imageUrl: placeData.imageUrl || '',
                 cost: parseFloat(document.getElementById('map-add-cost').value) || 0,
-                notes: document.getElementById('map-add-notes').value.trim()
+                notes: document.getElementById('map-add-notes').value.trim(),
+                candidateVotes: placeData.candidateVotes || []
             });
+
+            // 후보에서 제거
+            if (removeCandidateId) {
+                Store.removeCandidate(trip.id, removeCandidateId);
+            }
 
             UI.closeModal();
             UI.showToast(`"${title}" 일정에 추가됨`, 'success');
@@ -3834,8 +3842,9 @@ const MapView = (() => {
             category: candidate.category,
             imageUrl: candidate.imageUrl,
             placeId: candidate.placeId,
-            rating: candidate.rating
-        });
+            rating: candidate.rating,
+            candidateVotes: candidate.votes || []
+        }, candidateId);
     }
 
     function focusCandidate(candidateId) {

@@ -56,6 +56,7 @@ const FirebaseSync = (() => {
             day.items = ensureArray(day.items);
             day.items.forEach(item => {
                 item.comments = ensureArray(item.comments);
+                item.candidateVotes = ensureArray(item.candidateVotes);
             });
         });
         // candidates 내부 votes 배열 복원
