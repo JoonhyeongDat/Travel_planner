@@ -3978,24 +3978,21 @@ const MapView = (() => {
         map.panTo({ lat: candidate.lat, lng: candidate.lng });
         map.setZoom(16);
 
+        // 기존 searchMarker 제거
         if (searchMarker) searchMarker.setMap(null);
-        searchMarker = new google.maps.Marker({
-            position: { lat: candidate.lat, lng: candidate.lng },
-            map: map,
-            title: candidate.title,
-            icon: {
-                path: google.maps.SymbolPath.CIRCLE,
-                fillColor: '#D97706',
-                fillOpacity: 1,
-                strokeColor: 'white',
-                strokeWeight: 3,
-                scale: 16,
-                labelOrigin: new google.maps.Point(0, 0)
-            },
-            label: { text: (UI.categoryInfo[candidate.category] || UI.categoryInfo.place).icon[0], color: 'white', fontSize: '10px' },
-            animation: google.maps.Animation.BOUNCE
-        });
-        setTimeout(() => { if (searchMarker) searchMarker.setAnimation(null); }, 1400);
+        searchMarker = null;
+
+        // 해당 후보의 기존 마커를 찾아서 바운스
+        const idx = candidateMarkers.findIndex(m =>
+            m && Math.abs(m.getPosition().lat() - candidate.lat) < 0.0001
+                && Math.abs(m.getPosition().lng() - candidate.lng) < 0.0001
+        );
+        if (idx >= 0) {
+            candidateInfoWindows.forEach(iw => { if (iw) iw.close(); });
+            if (candidateInfoWindows[idx]) candidateInfoWindows[idx].open(map, candidateMarkers[idx]);
+            candidateMarkers[idx].setAnimation(google.maps.Animation.BOUNCE);
+            setTimeout(() => { if (candidateMarkers[idx]) candidateMarkers[idx].setAnimation(null); }, 1400);
+        }
     }
 
     function removeCandidate(candidateId) {
