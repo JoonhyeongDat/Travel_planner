@@ -82,6 +82,7 @@ const Store = (() => {
             travelMode: data.travelMode || '', // walking, driving, transit
             travelDuration: data.travelDuration || '',
             travelInfo: data.travelInfo || null, // { walking: {duration,distance}, driving: {...}, transit: {...}, selectedMode: 'walking'|'driving'|'transit' }
+            candidateVotes: data.candidateVotes || [],
             comments: [],
             isFavorite: false,
             createdAt: new Date().toISOString()
