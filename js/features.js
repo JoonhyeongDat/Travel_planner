@@ -3222,6 +3222,9 @@ const MapView = (() => {
     let map = null;
     let markers = [];
     let infoWindows = [];
+    let candidateMarkers = [];
+    let candidateInfoWindows = [];
+    let showCandidates = false;
     let directionsRenderer = null;
     let geocoder = null;
     let autocomplete = null;
@@ -3260,6 +3263,10 @@ const MapView = (() => {
                 trip.days.map(d => `<option value="${d.id}">Day ${d.dayNumber}</option>`).join('');
             dayFilter.value = currentFilter;
         }
+
+        // 후보 표시 체크박스 상태 복원
+        const candCheckbox = document.getElementById('map-show-candidates');
+        if (candCheckbox) candCheckbox.checked = showCandidates;
 
         // 탭 상태 복원
         updateTabUI();
@@ -3837,6 +3844,7 @@ const MapView = (() => {
         markers = [];
         infoWindows.forEach(iw => { if (iw) iw.close(); });
         infoWindows = [];
+        clearCandidateMarkers();
         if (directionsRenderer) {
             directionsRenderer.setMap(null);
             directionsRenderer = null;
@@ -3887,6 +3895,111 @@ const MapView = (() => {
                 map.setZoom(15);
             } else {
                 map.fitBounds(bounds, { padding: 60 });
+            }
+        }
+
+        // 후보 마커 표시 (옵션 ON일 때)
+        if (showCandidates) renderCandidateMarkers(trip, bounds);
+    }
+
+    function renderCandidateMarkers(trip, bounds) {
+        clearCandidateMarkers();
+        if (!trip || !map) return;
+        const candidates = (trip.candidates || []).filter(c => c.lat && c.lng);
+        candidates.forEach((c, i) => {
+            const catInfo = UI.categoryInfo[c.category] || UI.categoryInfo.place;
+            const pos = { lat: c.lat, lng: c.lng };
+
+            const marker = new google.maps.Marker({
+                position: pos,
+                map: map,
+                title: c.title,
+                label: {
+                    text: '★',
+                    color: '#D97706',
+                    fontWeight: 'bold',
+                    fontSize: '11px'
+                },
+                icon: {
+                    path: google.maps.SymbolPath.CIRCLE,
+                    fillColor: '#FFFBEB',
+                    fillOpacity: 1,
+                    strokeColor: '#D97706',
+                    strokeWeight: 2.5,
+                    scale: 16,
+                    labelOrigin: new google.maps.Point(0, 0)
+                },
+                animation: google.maps.Animation.DROP,
+                zIndex: 0
+            });
+
+            const infoContent = `
+                <div style="font-family:'Noto Sans KR',sans-serif;max-width:250px;padding:4px">
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+                        <span style="background:#FEF3C7;color:#D97706;font-size:0.65rem;font-weight:700;padding:2px 6px;border-radius:4px">후보</span>
+                        <span style="font-weight:700;font-size:14px">${catInfo.icon} ${UI.escapeHtml(c.title)}</span>
+                    </div>
+                    ${c.address ? `<div style="font-size:12px;color:#888;margin-bottom:4px">${UI.escapeHtml(c.address)}</div>` : ''}
+                    ${c.rating ? `<div style="font-size:12px;color:#D97706;margin-bottom:4px">⭐ ${c.rating}</div>` : ''}
+                    ${c.notes ? `<div style="font-size:12px;color:#555;margin-top:6px;border-top:1px solid #eee;padding-top:6px">${UI.escapeHtml(c.notes)}</div>` : ''}
+                    <a href="https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lng}" target="_blank" rel="noopener"
+                       style="display:inline-block;margin-top:8px;font-size:11px;color:#1a73e8;text-decoration:none">
+                        Google Maps에서 보기 →
+                    </a>
+                </div>`;
+
+            const infoWindow = new google.maps.InfoWindow({ content: infoContent });
+            candidateInfoWindows.push(infoWindow);
+
+            marker.addListener('click', () => {
+                infoWindows.forEach(iw => { if (iw) iw.close(); });
+                candidateInfoWindows.forEach(iw => { if (iw) iw.close(); });
+                infoWindow.open(map, marker);
+                // 후보 탭으로 전환 & 스크롤
+                scrollToCandidateItem(c.id);
+            });
+
+            candidateMarkers.push(marker);
+            if (bounds) bounds.extend(pos);
+        });
+    }
+
+    function clearCandidateMarkers() {
+        candidateMarkers.forEach(m => m.setMap(null));
+        candidateMarkers = [];
+        candidateInfoWindows.forEach(iw => iw.close());
+        candidateInfoWindows = [];
+    }
+
+    function toggleCandidateMarkers(checked) {
+        showCandidates = checked;
+        if (!map) return;
+        if (showCandidates) {
+            const trip = Store.getCurrentTrip();
+            if (trip) {
+                const bounds = map.getBounds() || new google.maps.LatLngBounds();
+                renderCandidateMarkers(trip, null);
+            }
+        } else {
+            clearCandidateMarkers();
+        }
+    }
+
+    function scrollToCandidateItem(candidateId) {
+        const candTab = document.querySelector('[data-map-tab="candidates"]');
+        if (candTab && activeTab !== 'candidates') {
+            candTab.click();
+        }
+        const list = document.getElementById('map-candidates-list');
+        if (!list) return;
+        const items = list.querySelectorAll('.map-candidate-item');
+        for (const item of items) {
+            // 후보 항목에서 focusCandidate 호출에 해당 id가 있는지 확인
+            if (item.innerHTML.includes(candidateId)) {
+                item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                item.classList.add('map-place-highlight');
+                setTimeout(() => item.classList.remove('map-place-highlight'), 2000);
+                break;
             }
         }
     }
@@ -4070,5 +4183,5 @@ const MapView = (() => {
 
     return { render, initGoogleMap, focusMarker, showRoute, setFilter, switchTab,
              searchPlace, addCandidateToItinerary, focusCandidate, removeCandidate,
-             selectSearchResult, closeSearchResults };
+             selectSearchResult, closeSearchResults, toggleCandidateMarkers };
 })();
