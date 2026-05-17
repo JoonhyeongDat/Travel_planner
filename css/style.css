@@ -1553,7 +1553,7 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     display: flex;
     flex-direction: column;
     align-items: center;
-    min-width: 56px;
+    min-width: 80px;
     flex-shrink: 0;
 }
 .item-time-start {
@@ -1589,16 +1589,19 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     opacity: 1;
 }
 .item-time-input {
-    width: 52px;
+    width: 80px;
     font-size: 0.85rem;
     font-weight: 600;
     color: var(--primary);
     text-align: center;
-    border: 1px solid var(--primary-light);
+    border: 2px solid var(--primary);
     border-radius: var(--radius-sm);
-    padding: 2px 4px;
-    background: var(--bg-primary);
+    padding: 4px 6px;
+    background: #fff;
     outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+    box-shadow: 0 0 0 3px rgba(79,70,229,0.15);
 }
 
 /* 일정 삽입 버튼 */
