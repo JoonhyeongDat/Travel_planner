@@ -3259,6 +3259,7 @@ const MapView = (() => {
     let currentFilter = 'all';
     let activeTab = 'places';
     let mapCandidateCatFilter = 'all';
+    let _insertingCandidate = null; // 삽입 모드 시 후보 데이터
 
     const DAY_COLORS = [
         '#4F46E5', '#059669', '#DC2626', '#D97706', '#7C3AED',
@@ -3374,6 +3375,62 @@ const MapView = (() => {
         if (!list) return;
 
         const places = trip ? getAllPlaces(trip, currentFilter) : [];
+
+        // 삽입 모드 헤더
+        if (_insertingCandidate) {
+            const ic = _insertingCandidate;
+            const icCat = UI.categoryInfo[ic.category] || UI.categoryInfo.place;
+            let headerHtml = `<div class="map-insert-header">
+                <div class="map-insert-info">
+                    <span class="itin-candidate-icon" style="background:${icCat.color}15;color:${icCat.color}">${icCat.icon}</span>
+                    <strong>${UI.escapeHtml(ic.title)}</strong> 을 추가할 위치를 선택하세요
+                </div>
+                <button class="btn-outline btn-sm" onclick="MapView.cancelInsert()">취소</button>
+            </div>`;
+
+            if (places.length === 0) {
+                // 일정이 비어있으면 바로 Day 1에 추가
+                headerHtml += `<div class="map-insert-empty">
+                    <button class="btn-primary btn-sm" onclick="MapView.insertCandidateAt(0)">
+                        <span class="material-symbols-rounded">add</span> Day 1에 추가
+                    </button>
+                </div>`;
+                list.innerHTML = headerHtml;
+                return;
+            }
+
+            let itemsHtml = '';
+            places.forEach((p, i) => {
+                const color = DAY_COLORS[(p.dayNumber - 1) % DAY_COLORS.length];
+                const catInfo = UI.categoryInfo[p.category] || UI.categoryInfo.place;
+                // 삽입 슬롯 (각 아이템 위)
+                const prevDay = i > 0 ? places[i - 1].dayNumber : p.dayNumber;
+                const slotDay = p.dayNumber;
+                itemsHtml += `<div class="map-insert-slot" onclick="MapView.insertCandidateAt(${i})" title="여기에 추가">
+                    <div class="map-insert-slot-line"></div>
+                    <span class="map-insert-slot-label">Day ${slotDay} · 여기에 추가</span>
+                    <div class="map-insert-slot-line"></div>
+                </div>`;
+                itemsHtml += `<div class="map-place-item map-place-item-inserting" data-place-index="${i}">
+                    <div class="map-place-marker" style="background:${color}">${i + 1}</div>
+                    <div style="flex:1;min-width:0">
+                        <div class="map-place-name">${UI.escapeHtml(p.title)} <span class="map-cat-badge" style="background:${catInfo.color}15;color:${catInfo.color}">${catInfo.icon} ${catInfo.label}</span></div>
+                        <div class="map-place-address">Day ${p.dayNumber} · ${UI.escapeHtml(p.address || '')}</div>
+                    </div>
+                </div>`;
+            });
+            // 마지막 아이템 뒤 슬롯
+            const lastDay = places[places.length - 1].dayNumber;
+            itemsHtml += `<div class="map-insert-slot" onclick="MapView.insertCandidateAt(${places.length})" title="여기에 추가">
+                <div class="map-insert-slot-line"></div>
+                <span class="map-insert-slot-label">Day ${lastDay} · 여기에 추가</span>
+                <div class="map-insert-slot-line"></div>
+            </div>`;
+
+            list.innerHTML = headerHtml + itemsHtml;
+            return;
+        }
+
         if (places.length === 0) {
             list.innerHTML = '<div class="empty-state-sm"><p>일정에 장소를 추가하면 여기에 표시됩니다</p></div>';
             return;
@@ -3833,21 +3890,80 @@ const MapView = (() => {
     // ===== 후보 장소 관리 =====
     function addCandidateToItinerary(candidateId) {
         const trip = Store.getCurrentTrip();
-        if (!trip) return;
+        if (!trip || trip.days.length === 0) {
+            UI.showToast('먼저 일정(Day)을 추가해주세요', 'warning');
+            return;
+        }
         const candidate = (trip.candidates || []).find(c => c.id === candidateId);
         if (!candidate) return;
 
-        showAddToItineraryModal({
-            title: candidate.title,
-            address: candidate.address,
-            lat: candidate.lat,
-            lng: candidate.lng,
-            category: candidate.category,
-            imageUrl: candidate.imageUrl,
-            placeId: candidate.placeId,
-            rating: candidate.rating,
-            candidateVotes: candidate.votes || []
-        }, candidateId);
+        // 삽입 모드 진입
+        _insertingCandidate = { ...candidate, _candidateId: candidateId };
+        activeTab = 'places';
+        updateTabUI();
+        renderPlacesList();
+    }
+
+    function insertCandidateAt(slotIndex) {
+        if (!_insertingCandidate) return;
+        const trip = Store.getCurrentTrip();
+        if (!trip) return;
+
+        const places = getAllPlaces(trip, currentFilter);
+        let targetDayId, insertIdx;
+
+        if (places.length === 0) {
+            // 빈 일정 → Day 1
+            targetDayId = trip.days[0].id;
+            insertIdx = 0;
+        } else if (slotIndex >= places.length) {
+            // 맨 끝
+            const lastPlace = places[places.length - 1];
+            targetDayId = lastPlace.dayId;
+            const day = trip.days.find(d => d.id === targetDayId);
+            insertIdx = day ? day.items.length : 0;
+        } else {
+            // 특정 위치 앞
+            const targetPlace = places[slotIndex];
+            targetDayId = targetPlace.dayId;
+            const day = trip.days.find(d => d.id === targetDayId);
+            insertIdx = day ? day.items.findIndex(it => it.id === targetPlace.id) : 0;
+            if (insertIdx < 0) insertIdx = 0;
+        }
+
+        const ic = _insertingCandidate;
+        const item = Store.addItineraryItem(trip.id, targetDayId, {
+            title: ic.title,
+            category: ic.category,
+            address: ic.address,
+            lat: ic.lat,
+            lng: ic.lng,
+            placeId: ic.placeId || null,
+            imageUrl: ic.imageUrl || '',
+            notes: ic.notes || '',
+            candidateVotes: ic.votes || []
+        });
+
+        // 삽입 위치로 이동
+        if (item && insertIdx >= 0) {
+            const day = trip.days.find(d => d.id === targetDayId);
+            if (day && day.items.length > 1) {
+                const removed = day.items.pop();
+                day.items.splice(insertIdx, 0, removed);
+                Store.save();
+            }
+        }
+
+        // 후보에서 제거
+        Store.removeCandidate(trip.id, ic._candidateId);
+        _insertingCandidate = null;
+        UI.showToast(`"${ic.title}" 일정에 추가됨`, 'success');
+        render();
+    }
+
+    function cancelInsert() {
+        _insertingCandidate = null;
+        renderPlacesList();
     }
 
     function focusCandidate(candidateId) {
@@ -4383,5 +4499,6 @@ const MapView = (() => {
     return { render, initGoogleMap, focusMarker, showRoute, setFilter, switchTab,
              searchPlace, addCandidateToItinerary, focusCandidate, removeCandidate,
              selectSearchResult, closeSearchResults, toggleCandidateMarkers,
-             setMapCandidateCatFilter, voteMapCandidate, moveToCandidate };
+             setMapCandidateCatFilter, voteMapCandidate, moveToCandidate,
+             insertCandidateAt, cancelInsert };
 })();

@@ -1240,6 +1240,72 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     color: #F472B6 !important;
 }
 
+/* 후보 삽입 모드 */
+.map-insert-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--primary-bg);
+    border: 1px solid var(--primary-light);
+    border-radius: var(--radius-md);
+    margin-bottom: 8px;
+}
+.map-insert-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    color: var(--primary);
+}
+.map-insert-info strong {
+    color: var(--text-primary);
+}
+.map-insert-empty {
+    text-align: center;
+    padding: 20px;
+}
+.map-insert-slot {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 0;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+.map-insert-slot-line {
+    flex: 1;
+    height: 2px;
+    background: var(--border-light);
+    border-radius: 1px;
+    transition: background var(--transition-fast);
+}
+.map-insert-slot-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+    padding: 2px 8px;
+    border: 1px dashed var(--border);
+    border-radius: var(--radius-full);
+    transition: all var(--transition-fast);
+}
+.map-insert-slot:hover .map-insert-slot-line {
+    background: var(--primary);
+    height: 3px;
+}
+.map-insert-slot:hover .map-insert-slot-label {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+    border-style: solid;
+}
+.map-place-item-inserting {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
 /* 지도 장소 목록 하이라이트 */
 .map-place-highlight {
     animation: placeHighlight 2s ease-out;
