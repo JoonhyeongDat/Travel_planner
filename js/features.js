@@ -1136,6 +1136,8 @@ const Itinerary = (() => {
     }
 
     // ===== 일정 후보 관리 (일정 페이지) =====
+    let _candidateTab = 'individual'; // 'individual' | 'course'
+
     function renderItineraryCandidates() {
         const trip = Store.getCurrentTrip();
         const list = document.getElementById('itinerary-candidates-list');
@@ -1143,40 +1145,210 @@ const Itinerary = (() => {
         if (!list) return;
 
         const candidates = trip ? Store.getCandidates(trip.id) : [];
-        if (countEl) countEl.textContent = candidates.length;
+        const courses = trip ? Store.getCourseCandidates(trip.id) : [];
+        if (countEl) countEl.textContent = candidates.length + courses.length;
 
-        if (candidates.length === 0) {
-            list.innerHTML = `<div class="empty-state-sm"><p>일정 후보가 없습니다. 지도에서 장소를 검색하고 후보에 추가해보세요.</p></div>`;
+        const myMemberId = Store.getMyMemberId();
+        const trip_ = trip;
+
+        // 탭 헤더
+        let html = `<div class="candidate-tabs">
+            <button class="candidate-tab ${_candidateTab === 'individual' ? 'active' : ''}" onclick="Itinerary.setCandidateTab('individual')">
+                개별 후보 <span class="candidate-tab-count">${candidates.length}</span>
+            </button>
+            <button class="candidate-tab ${_candidateTab === 'course' ? 'active' : ''}" onclick="Itinerary.setCandidateTab('course')">
+                코스 후보 <span class="candidate-tab-count">${courses.length}</span>
+            </button>
+        </div>`;
+
+        if (_candidateTab === 'individual') {
+            if (candidates.length === 0) {
+                html += `<div class="empty-state-sm"><p>일정 후보가 없습니다.</p></div>`;
+            } else {
+                const dayOptions = trip.days.map(d =>
+                    `<option value="${d.id}">Day ${d.dayNumber}</option>`
+                ).join('');
+
+                html += candidates.map(c => {
+                    const catInfo = UI.categoryInfo[c.category] || UI.categoryInfo.place;
+                    const votes = c.votes || [];
+                    const voted = myMemberId && votes.includes(myMemberId);
+                    const voterNames = votes.map(vid => {
+                        const m = trip_.members.find(m => m.id === vid);
+                        return m ? m.name : '';
+                    }).filter(Boolean);
+                    return `<div class="itin-candidate-item" data-candidate-id="${c.id}" draggable="true">
+                        <div class="itin-candidate-left">
+                            <div class="item-drag-handle"><span class="material-symbols-rounded">drag_indicator</span></div>
+                            <span class="itin-candidate-icon" style="background:${catInfo.color}15;color:${catInfo.color}">${catInfo.icon}</span>
+                            <div class="itin-candidate-info">
+                                <div class="itin-candidate-name">${UI.escapeHtml(c.title)}</div>
+                                <div class="itin-candidate-addr">${UI.escapeHtml(c.address || '')}</div>
+                                ${c.rating ? `<span class="itin-candidate-rating">⭐ ${c.rating}</span>` : ''}
+                                <div class="candidate-vote-row">
+                                    <button class="candidate-vote-btn ${voted ? 'voted' : ''}" onclick="Itinerary.voteCandidate('${c.id}')" title="${voted ? '투표 취소' : '투표하기'}">
+                                        <span class="material-symbols-rounded">${voted ? 'thumb_up' : 'thumb_up_off_alt'}</span>
+                                        <span>${votes.length}</span>
+                                    </button>
+                                    ${voterNames.length > 0 ? `<span class="candidate-voters">${voterNames.join(', ')}</span>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="itin-candidate-right">
+                            <select class="itin-candidate-day" data-cid="${c.id}">${dayOptions}</select>
+                            <button class="btn-sm-primary" onclick="Itinerary.addCandidateToDay('${c.id}', this)" title="일정에 추가">
+                                <span class="material-symbols-rounded">add</span> 추가
+                            </button>
+                            <button class="btn-icon btn-sm" onclick="Itinerary.removeCandidateFromList('${c.id}')" title="후보 삭제">
+                                <span class="material-symbols-rounded">close</span>
+                            </button>
+                        </div>
+                    </div>`;
+                }).join('');
+            }
+        } else {
+            // 코스 후보 탭
+            html += `<div style="padding:0 0 8px;display:flex;justify-content:flex-end">
+                <button class="btn-outline btn-sm" onclick="Itinerary.showAddCourseModal()" style="font-size:0.8rem">
+                    <span class="material-symbols-rounded" style="font-size:1rem">add</span> 코스 만들기
+                </button>
+            </div>`;
+
+            if (courses.length === 0) {
+                html += `<div class="empty-state-sm"><p>코스 후보가 없습니다.<br>개별 후보를 묶어 코스를 만들어보세요.</p></div>`;
+            } else {
+                html += courses.map(course => {
+                    const votes = course.votes || [];
+                    const voted = myMemberId && votes.includes(myMemberId);
+                    const voterNames = votes.map(vid => {
+                        const m = trip_.members.find(m => m.id === vid);
+                        return m ? m.name : '';
+                    }).filter(Boolean);
+                    const items = (course.candidateIds || []).map(cid => {
+                        return candidates.find(c => c.id === cid);
+                    }).filter(Boolean);
+
+                    const itemsHtml = items.map((c, i) => {
+                        const catInfo = UI.categoryInfo[c.category] || UI.categoryInfo.place;
+                        return `<div class="course-item">
+                            <span class="course-item-num">${i + 1}</span>
+                            <span class="itin-candidate-icon" style="background:${catInfo.color}15;color:${catInfo.color};width:24px;height:24px;font-size:0.8rem">${catInfo.icon}</span>
+                            <span class="course-item-name">${UI.escapeHtml(c.title)}</span>
+                        </div>`;
+                    }).join('<div class="course-arrow"><span class="material-symbols-rounded">arrow_downward</span></div>');
+
+                    return `<div class="course-candidate-card">
+                        <div class="course-candidate-header">
+                            <div>
+                                <div class="course-candidate-name">${UI.escapeHtml(course.name)}</div>
+                                ${course.description ? `<div class="course-candidate-desc">${UI.escapeHtml(course.description)}</div>` : ''}
+                            </div>
+                            <button class="btn-icon btn-sm" onclick="Itinerary.removeCourse('${course.id}')" title="코스 삭제">
+                                <span class="material-symbols-rounded">close</span>
+                            </button>
+                        </div>
+                        <div class="course-items-list">${itemsHtml || '<span style="color:var(--text-tertiary);font-size:0.8rem">포함된 장소 없음</span>'}</div>
+                        <div class="course-candidate-footer">
+                            <button class="candidate-vote-btn ${voted ? 'voted' : ''}" onclick="Itinerary.voteCourse('${course.id}')" title="${voted ? '투표 취소' : '투표하기'}">
+                                <span class="material-symbols-rounded">${voted ? 'thumb_up' : 'thumb_up_off_alt'}</span>
+                                <span>${votes.length}표</span>
+                            </button>
+                            ${voterNames.length > 0 ? `<span class="candidate-voters">${voterNames.join(', ')}</span>` : ''}
+                        </div>
+                    </div>`;
+                }).join('');
+            }
+        }
+
+        list.innerHTML = html;
+    }
+
+    function setCandidateTab(tab) {
+        _candidateTab = tab;
+        renderItineraryCandidates();
+    }
+
+    function voteCandidate(candidateId) {
+        const trip = Store.getCurrentTrip();
+        const myId = Store.getMyMemberId();
+        if (!trip || !myId) { UI.showToast('멤버를 먼저 선택해주세요', 'warning'); return; }
+        Store.voteCandidate(trip.id, candidateId, myId);
+        renderItineraryCandidates();
+    }
+
+    function voteCourse(courseId) {
+        const trip = Store.getCurrentTrip();
+        const myId = Store.getMyMemberId();
+        if (!trip || !myId) { UI.showToast('멤버를 먼저 선택해주세요', 'warning'); return; }
+        Store.voteCourseCandidate(trip.id, courseId, myId);
+        renderItineraryCandidates();
+    }
+
+    function removeCourse(courseId) {
+        const trip = Store.getCurrentTrip();
+        if (!trip) return;
+        Store.removeCourseCandidate(trip.id, courseId);
+        renderItineraryCandidates();
+        UI.showToast('코스가 삭제되었습니다', 'info');
+    }
+
+    function showAddCourseModal() {
+        const trip = Store.getCurrentTrip();
+        if (!trip) return;
+        const candidates = Store.getCandidates(trip.id);
+        if (candidates.length < 2) {
+            UI.showToast('코스를 만들려면 개별 후보가 2개 이상 필요합니다', 'warning');
             return;
         }
 
-        const dayOptions = trip.days.map(d =>
-            `<option value="${d.id}">Day ${d.dayNumber}</option>`
-        ).join('');
-
-        list.innerHTML = candidates.map(c => {
+        const checkboxes = candidates.map(c => {
             const catInfo = UI.categoryInfo[c.category] || UI.categoryInfo.place;
-            return `<div class="itin-candidate-item" data-candidate-id="${c.id}" draggable="true">
-                <div class="itin-candidate-left">
-                    <div class="item-drag-handle"><span class="material-symbols-rounded">drag_indicator</span></div>
-                    <span class="itin-candidate-icon" style="background:${catInfo.color}15;color:${catInfo.color}">${catInfo.icon}</span>
-                    <div class="itin-candidate-info">
-                        <div class="itin-candidate-name">${UI.escapeHtml(c.title)}</div>
-                        <div class="itin-candidate-addr">${UI.escapeHtml(c.address || '')}</div>
-                        ${c.rating ? `<span class="itin-candidate-rating">⭐ ${c.rating}</span>` : ''}
-                    </div>
-                </div>
-                <div class="itin-candidate-right">
-                    <select class="itin-candidate-day" data-cid="${c.id}">${dayOptions}</select>
-                    <button class="btn-sm-primary" onclick="Itinerary.addCandidateToDay('${c.id}', this)" title="일정에 추가">
-                        <span class="material-symbols-rounded">add</span> 추가
-                    </button>
-                    <button class="btn-icon btn-sm" onclick="Itinerary.removeCandidateFromList('${c.id}')" title="후보 삭제">
-                        <span class="material-symbols-rounded">close</span>
-                    </button>
-                </div>
-            </div>`;
+            return `<label class="course-check-item">
+                <input type="checkbox" value="${c.id}" />
+                <span class="itin-candidate-icon" style="background:${catInfo.color}15;color:${catInfo.color};width:24px;height:24px;font-size:0.8rem">${catInfo.icon}</span>
+                <span>${UI.escapeHtml(c.title)}</span>
+            </label>`;
         }).join('');
+
+        UI.showModal('코스 후보 만들기', `
+            <div class="form-group">
+                <label class="form-label">코스 이름 *</label>
+                <input type="text" id="course-name" placeholder="예: 시부야·하라주쿠 코스" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">설명</label>
+                <input type="text" id="course-desc" placeholder="코스 설명 (선택)" />
+            </div>
+            <div class="form-group">
+                <label class="form-label">포함할 후보 선택 (순서대로 체크) *</label>
+                <div class="course-check-list" id="course-check-list">${checkboxes}</div>
+            </div>
+        `, `
+            <button class="btn-outline" onclick="UI.closeModal()">취소</button>
+            <button class="btn-primary" id="btn-save-course">만들기</button>
+        `);
+
+        setTimeout(() => {
+            document.getElementById('btn-save-course').onclick = () => {
+                const name = document.getElementById('course-name').value.trim();
+                if (!name) { UI.showToast('코스 이름을 입력해주세요', 'warning'); return; }
+                const checked = [...document.querySelectorAll('#course-check-list input:checked')].map(el => el.value);
+                if (checked.length < 2) { UI.showToast('2개 이상의 후보를 선택해주세요', 'warning'); return; }
+
+                Store.addCourseCandidate(trip.id, {
+                    name,
+                    description: document.getElementById('course-desc').value.trim(),
+                    candidateIds: checked,
+                    createdBy: Store.getMyMemberId() || ''
+                });
+                UI.closeModal();
+                _candidateTab = 'course';
+                renderItineraryCandidates();
+                Store.addActivity(trip.id, '코스 추가', `"${name}" 코스 후보 추가`);
+                UI.showToast(`"${name}" 코스가 추가되었습니다`, 'success');
+            };
+            document.getElementById('course-name').focus();
+        }, 50);
     }
 
     function addCandidateToDay(candidateId, btnEl, directDayId, insertIndex) {
@@ -1440,7 +1612,9 @@ const Itinerary = (() => {
         removeItem, toggleFavorite, addComment, editTimeInline,
         selectTravelMode, editTravelTime, moveItemToCandidate,
         addCandidateToDay, removeCandidateFromList,
-        showAddCandidateModal, initCandidatesPanel
+        showAddCandidateModal, initCandidatesPanel,
+        setCandidateTab, voteCandidate, voteCourse,
+        removeCourse, showAddCourseModal
     };
 })();
 

@@ -643,6 +643,60 @@ const Store = (() => {
             return trip.candidates || [];
         },
 
+        // 후보 투표
+        voteCandidate: (tripId, candidateId, memberId) => {
+            const trip = _data.trips.find(t => t.id === tripId);
+            if (!trip) return;
+            const candidate = (trip.candidates || []).find(c => c.id === candidateId);
+            if (!candidate) return;
+            if (!candidate.votes) candidate.votes = [];
+            const idx = candidate.votes.indexOf(memberId);
+            if (idx >= 0) candidate.votes.splice(idx, 1);
+            else candidate.votes.push(memberId);
+            save(_data);
+        },
+
+        // 코스 후보
+        addCourseCandidate: (tripId, data) => {
+            const trip = _data.trips.find(t => t.id === tripId);
+            if (!trip) return null;
+            if (!trip.courseCandidates) trip.courseCandidates = [];
+            const course = {
+                id: generateId(),
+                name: data.name || '',
+                description: data.description || '',
+                candidateIds: data.candidateIds || [],
+                votes: [],
+                createdBy: data.createdBy || '',
+                createdAt: new Date().toISOString()
+            };
+            trip.courseCandidates.push(course);
+            save(_data);
+            return course;
+        },
+        removeCourseCandidate: (tripId, courseId) => {
+            const trip = _data.trips.find(t => t.id === tripId);
+            if (!trip || !trip.courseCandidates) return;
+            trip.courseCandidates = trip.courseCandidates.filter(c => c.id !== courseId);
+            save(_data);
+        },
+        voteCourseCandidate: (tripId, courseId, memberId) => {
+            const trip = _data.trips.find(t => t.id === tripId);
+            if (!trip) return;
+            const course = (trip.courseCandidates || []).find(c => c.id === courseId);
+            if (!course) return;
+            if (!course.votes) course.votes = [];
+            const idx = course.votes.indexOf(memberId);
+            if (idx >= 0) course.votes.splice(idx, 1);
+            else course.votes.push(memberId);
+            save(_data);
+        },
+        getCourseCandidates: (tripId) => {
+            const trip = _data.trips.find(t => t.id === tripId);
+            if (!trip) return [];
+            return trip.courseCandidates || [];
+        },
+
         // 현재 사용자
         getMyMemberId: () => _data.settings.myMemberId,
         setMyMemberId: (id) => {

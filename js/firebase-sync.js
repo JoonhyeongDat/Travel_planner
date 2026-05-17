@@ -49,6 +49,7 @@ const FirebaseSync = (() => {
         trip.journals = ensureArray(trip.journals);
         trip.favorites = ensureArray(trip.favorites);
         trip.candidates = ensureArray(trip.candidates);
+        trip.courseCandidates = ensureArray(trip.courseCandidates);
         trip.activityLog = ensureArray(trip.activityLog);
         // days 내부 items 배열 복원
         trip.days.forEach(day => {
@@ -56,6 +57,12 @@ const FirebaseSync = (() => {
             day.items.forEach(item => {
                 item.comments = ensureArray(item.comments);
             });
+        });
+        // candidates 내부 votes 배열 복원
+        trip.candidates.forEach(c => { c.votes = ensureArray(c.votes); });
+        trip.courseCandidates.forEach(c => {
+            c.votes = ensureArray(c.votes);
+            c.candidateIds = ensureArray(c.candidateIds);
         });
         // checklist 내부 items 배열 복원
         trip.checklist.forEach(cat => {
