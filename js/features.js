@@ -1444,6 +1444,7 @@ const Itinerary = (() => {
 // ========== 예약 관리 ==========
 const Reservations = (() => {
     let currentFilter = 'all';
+    let currentStatusFilter = 'all';
 
     function render() {
         const trip = Store.getCurrentTrip();
@@ -1461,9 +1462,13 @@ const Reservations = (() => {
             return;
         }
 
-        const filtered = currentFilter === 'all'
+        let filtered = currentFilter === 'all'
             ? trip.reservations
             : trip.reservations.filter(r => r.type === currentFilter);
+
+        if (currentStatusFilter !== 'all') {
+            filtered = filtered.filter(r => r.status === currentStatusFilter);
+        }
 
         if (filtered.length === 0) {
             container.innerHTML = `<div class="empty-state-sm"><p>해당 카테고리의 예약이 없습니다</p></div>`;
@@ -1744,7 +1749,12 @@ const Reservations = (() => {
         render();
     }
 
-    return { render, showAddModal, showEditModal, remove, setFilter };
+    function setStatusFilter(status) {
+        currentStatusFilter = status;
+        render();
+    }
+
+    return { render, showAddModal, showEditModal, remove, setFilter, setStatusFilter };
 })();
 
 // ========== 예산 / 정산 ==========

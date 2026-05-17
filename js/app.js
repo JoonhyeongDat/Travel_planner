@@ -251,6 +251,9 @@ const App = (() => {
         document.querySelectorAll('.reservation-tabs .tab-btn').forEach(btn => {
             btn.addEventListener('click', () => Reservations.setFilter(btn.dataset.tab));
         });
+        document.getElementById('res-status-filter').addEventListener('change', (e) => {
+            Reservations.setStatusFilter(e.target.value);
+        });
 
         // 예산 관리
         document.getElementById('btn-add-expense').addEventListener('click', () => Budget.showAddModal());

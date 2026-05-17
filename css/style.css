@@ -1554,6 +1554,21 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     flex-wrap: wrap;
     gap: 12px;
 }
+.reservation-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.res-status-filter {
+    padding: 8px 12px;
+    border-radius: var(--radius-full);
+    font-size: 0.82rem;
+    font-weight: 500;
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    cursor: pointer;
+}
 .reservation-tabs {
     display: flex;
     gap: 6px;
