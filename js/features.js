@@ -3305,7 +3305,7 @@ const MapView = (() => {
         list.innerHTML = places.map((p, i) => {
             const color = DAY_COLORS[(p.dayNumber - 1) % DAY_COLORS.length];
             return `
-                <div class="map-place-item" onclick="MapView.focusMarker(${i})" style="cursor:pointer">
+                <div class="map-place-item" data-place-index="${i}" onclick="MapView.focusMarker(${i})" style="cursor:pointer">
                     <div class="map-place-marker" style="background:${color}">${i + 1}</div>
                     <div style="flex:1;min-width:0">
                         <div class="map-place-name">${UI.escapeHtml(p.title)}</div>
@@ -3833,9 +3833,9 @@ const MapView = (() => {
         }
 
         // 기존 마커/경로 초기화
-        markers.forEach(m => m.setMap(null));
+        markers.forEach(m => { if (m) m.setMap(null); });
         markers = [];
-        infoWindows.forEach(iw => iw.close());
+        infoWindows.forEach(iw => { if (iw) iw.close(); });
         infoWindows = [];
         if (directionsRenderer) {
             directionsRenderer.setMap(null);
@@ -3847,6 +3847,10 @@ const MapView = (() => {
         const places = getAllPlaces(trip, currentFilter);
         const bounds = new google.maps.LatLngBounds();
         let geocodeQueue = [];
+
+        // 배열을 places 길이만큼 미리 확보 (인덱스 정렬 보장)
+        markers = new Array(places.length).fill(null);
+        infoWindows = new Array(places.length).fill(null);
 
         places.forEach((place, i) => {
             const color = DAY_COLORS[(place.dayNumber - 1) % DAY_COLORS.length];
@@ -3876,9 +3880,10 @@ const MapView = (() => {
             }, qi * 200);
         });
 
-        if (markers.length > 0) {
-            if (markers.length === 1) {
-                map.setCenter(markers[0].getPosition());
+        const validMarkers = markers.filter(m => m !== null);
+        if (validMarkers.length > 0) {
+            if (validMarkers.length === 1) {
+                map.setCenter(validMarkers[0].getPosition());
                 map.setZoom(15);
             } else {
                 map.fitBounds(bounds, { padding: 60 });
@@ -3925,14 +3930,15 @@ const MapView = (() => {
             </div>`;
 
         const infoWindow = new google.maps.InfoWindow({ content: infoContent });
-        infoWindows.push(infoWindow);
+        infoWindows[index] = infoWindow;
 
         marker.addListener('click', () => {
-            infoWindows.forEach(iw => iw.close());
+            infoWindows.forEach(iw => { if (iw) iw.close(); });
             infoWindow.open(map, marker);
+            scrollToPlaceItem(index);
         });
 
-        markers.push(marker);
+        markers[index] = marker;
         bounds.extend(pos);
     }
 
@@ -3940,7 +3946,7 @@ const MapView = (() => {
         if (markers[index]) {
             map.panTo(markers[index].getPosition());
             map.setZoom(16);
-            infoWindows.forEach(iw => iw.close());
+            infoWindows.forEach(iw => { if (iw) iw.close(); });
             if (infoWindows[index]) {
                 infoWindows[index].open(map, markers[index]);
             }
@@ -3949,8 +3955,25 @@ const MapView = (() => {
         }
     }
 
+    function scrollToPlaceItem(index) {
+        // 장소 목록 탭 활성화 & 해당 아이템으로 스크롤
+        const placesTab = document.querySelector('[data-map-tab="places"]');
+        const list = document.getElementById('map-places-list');
+        if (!list) return;
+        if (placesTab && activeTab !== 'places') {
+            placesTab.click();
+        }
+        const items = list.querySelectorAll('.map-place-item');
+        if (items[index]) {
+            items[index].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            items[index].classList.add('map-place-highlight');
+            setTimeout(() => items[index].classList.remove('map-place-highlight'), 2000);
+        }
+    }
+
     function showRoute() {
-        if (!map || markers.length < 2) {
+        const validMarkers = markers.filter(m => m !== null);
+        if (!map || validMarkers.length < 2) {
             UI.showToast('경로를 표시하려면 2개 이상의 장소가 필요합니다', 'warning');
             return;
         }

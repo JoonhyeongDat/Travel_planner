@@ -1207,6 +1207,15 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     accent-color: var(--primary);
 }
 
+/* 지도 장소 목록 하이라이트 */
+.map-place-highlight {
+    animation: placeHighlight 2s ease-out;
+}
+@keyframes placeHighlight {
+    0% { background: var(--primary-bg); box-shadow: 0 0 0 2px var(--primary); }
+    100% { background: transparent; box-shadow: none; }
+}
+
 /* ===== 뷰 모드: 목록(list) ===== */
 .itinerary-content.view-list .day-card {
     border: none;
