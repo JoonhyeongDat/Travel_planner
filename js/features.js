@@ -3247,7 +3247,7 @@ const MapView = (() => {
     let infoWindows = [];
     let candidateMarkers = [];
     let candidateInfoWindows = [];
-    let showCandidates = false;
+    let showCandidates = true;
     let directionsRenderer = null;
     let geocoder = null;
     let autocomplete = null;
