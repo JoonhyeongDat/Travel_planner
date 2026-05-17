@@ -1558,6 +1558,8 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     display: flex;
     align-items: center;
     gap: 10px;
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 .res-status-filter {
     padding: 8px 12px;
@@ -3210,7 +3212,7 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     .main-content {
         margin-left: 0;
     }
-    .mobile-menu-btn { display: flex; }
+    .mobile-menu-btn { display: none; }
     .mobile-nav { display: flex; }
 
     .page-container {

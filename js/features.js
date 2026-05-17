@@ -1866,12 +1866,12 @@ const Budget = (() => {
             const allItems = [...trip.expenses.map(e => ({ ...e, _source: 'manual' })), ...virtualItems];
 
             const togglesHTML = `
-                <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
-                    <label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;cursor:pointer">
+                <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:nowrap;align-items:center">
+                    <label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;cursor:pointer;white-space:nowrap">
                         <input type="checkbox" ${_showReservations ? 'checked' : ''} onchange="Budget.toggleReservations(this.checked)" />
                         <span>📋 확정 예약 포함</span>
                     </label>
-                    <label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;cursor:pointer">
+                    <label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;cursor:pointer;white-space:nowrap">
                         <input type="checkbox" ${_showEstimated ? 'checked' : ''} onchange="Budget.toggleEstimated(this.checked)" />
                         <span>📍 예상 비용 포함</span>
                     </label>
