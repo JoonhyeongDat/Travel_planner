@@ -3785,7 +3785,9 @@ const MapView = (() => {
         nameEl.textContent = place.name || '';
         ratingEl.innerHTML = place.rating ? `⭐ ${place.rating}` : '';
         addrEl.textContent = place.formatted_address || '';
-        gmapsLink.href = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+        gmapsLink.href = place.place_id
+            ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name || '')}&query_place_id=${place.place_id}`
+            : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name || lat + ',' + lng)}`;
 
         card.classList.add('show');
     }
@@ -4224,7 +4226,7 @@ const MapView = (() => {
                     ${c.address ? `<div style="font-size:12px;color:#888;margin-bottom:4px">${UI.escapeHtml(c.address)}</div>` : ''}
                     ${c.rating ? `<div style="font-size:12px;color:${CANDIDATE_COLOR};margin-bottom:4px">⭐ ${c.rating}</div>` : ''}
                     ${c.notes ? `<div style="font-size:12px;color:#555;margin-top:6px;border-top:1px solid #eee;padding-top:6px">${UI.escapeHtml(c.notes)}</div>` : ''}
-                    <a href="https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lng}" target="_blank" rel="noopener"
+                    <a href="${c.placeId ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.title)}&query_place_id=${c.placeId}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.title || c.lat + ',' + c.lng)}`}" target="_blank" rel="noopener"
                        style="display:inline-block;margin-top:8px;font-size:11px;color:#1a73e8;text-decoration:none">
                         Google Maps에서 보기 →
                     </a>
@@ -4339,7 +4341,7 @@ const MapView = (() => {
                 ${place.address ? `<div style="font-size:12px;color:#888;margin-bottom:4px">${UI.escapeHtml(place.address)}</div>` : ''}
                 ${place.notes ? `<div style="font-size:12px;color:#555;margin-top:6px;border-top:1px solid #eee;padding-top:6px">${UI.escapeHtml(place.notes)}</div>` : ''}
                 ${place.cost ? `<div style="font-size:12px;font-weight:600;color:#4F46E5;margin-top:4px">${UI.formatCurrency(place.cost)}</div>` : ''}
-                <a href="https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lng}" target="_blank" rel="noopener"
+                <a href="${place.placeId ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.title)}&query_place_id=${place.placeId}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.title || place.lat + ',' + place.lng)}`}" target="_blank" rel="noopener"
                    style="display:inline-block;margin-top:8px;font-size:11px;color:#1a73e8;text-decoration:none">
                     Google Maps에서 보기 →
                 </a>
