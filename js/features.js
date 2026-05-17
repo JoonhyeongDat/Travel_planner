@@ -64,6 +64,7 @@ const Itinerary = (() => {
                     <div class="day-header-left">
                         <span class="day-number">Day ${day.dayNumber}</span>
                         <span class="day-date">${dateStr}</span>
+                        <span class="day-title-text" onclick="Itinerary.editDayTitle(event,'${day.id}')" title="클릭하여 제목 수정">${day.customTitle ? UI.escapeHtml(day.customTitle) : ''}</span>
                     </div>
                     <div class="day-header-right">
                         <button class="btn-icon" onclick="Itinerary.showAddItemModal('${day.id}')" title="일정 추가">
@@ -1631,10 +1632,44 @@ const Itinerary = (() => {
         }, 50);
     }
 
+    function editDayTitle(e, dayId) {
+        e.stopPropagation();
+        const span = e.target.closest('.day-title-text');
+        if (!span || span.querySelector('input')) return;
+
+        const trip = Store.getCurrentTrip();
+        if (!trip) return;
+        const day = trip.days.find(d => d.id === dayId);
+        if (!day) return;
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'day-title-input';
+        input.value = day.customTitle || '';
+        input.placeholder = '일자 제목 입력';
+
+        span.textContent = '';
+        span.appendChild(input);
+        input.focus();
+
+        function save() {
+            const val = input.value.trim();
+            Store.updateDay(trip.id, dayId, { customTitle: val });
+            span.textContent = val;
+            input.remove();
+        }
+
+        input.addEventListener('blur', save);
+        input.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Enter') { ev.preventDefault(); save(); }
+            if (ev.key === 'Escape') { span.textContent = day.customTitle || ''; input.remove(); }
+        });
+    }
+
     return {
         render, addDay, removeDay,
         showAddItemModal, showEditItemModal,
-        removeItem, toggleFavorite, addComment, editTimeInline,
+        removeItem, toggleFavorite, addComment, editTimeInline, editDayTitle,
         selectTravelMode, editTravelTime, moveItemToCandidate,
         addCandidateToDay, removeCandidateFromList,
         showAddCandidateModal, initCandidatesPanel,

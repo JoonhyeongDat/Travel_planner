@@ -1490,6 +1490,40 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     font-size: 0.85rem;
     color: var(--text-secondary);
 }
+.day-title-text {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    cursor: pointer;
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    border: 1px dashed transparent;
+    transition: border-color 0.2s, background 0.2s;
+    min-width: 40px;
+    display: inline-block;
+}
+.day-title-text:empty::before {
+    content: '+ 제목';
+    color: var(--text-tertiary);
+    font-weight: 400;
+    font-size: 0.8rem;
+}
+.day-title-text:hover {
+    border-color: var(--border);
+    background: var(--bg-secondary);
+}
+.day-title-input {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    border: 2px solid var(--primary);
+    border-radius: var(--radius-sm);
+    padding: 2px 8px;
+    background: #fff;
+    outline: none;
+    width: 160px;
+    box-shadow: 0 0 0 3px rgba(79,70,229,0.15);
+}
 .day-header-right {
     display: flex;
     gap: 4px;

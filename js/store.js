@@ -259,11 +259,18 @@ const Store = (() => {
             const trip = _data.trips.find(t => t.id === tripId);
             if (!trip) return;
             trip.days = trip.days.filter(d => d.id !== dayId);
-            // 번호 재정렬
+            // 번호 재정렬 (커스텀 제목 보존)
             trip.days.forEach((d, i) => {
                 d.dayNumber = i + 1;
-                d.title = `${i + 1}일차`;
             });
+            save(_data);
+        },
+        updateDay: (tripId, dayId, updates) => {
+            const trip = _data.trips.find(t => t.id === tripId);
+            if (!trip) return;
+            const day = trip.days.find(d => d.id === dayId);
+            if (!day) return;
+            Object.assign(day, updates);
             save(_data);
         },
         addItineraryItem: (tripId, dayId, data) => {
