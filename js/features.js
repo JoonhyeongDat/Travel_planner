@@ -3386,7 +3386,7 @@ const MapView = (() => {
                 return m ? m.name : '';
             }).filter(Boolean);
             return `
-                <div class="map-candidate-item" data-candidate-id="${c.id}">
+                <div class="map-candidate-item" data-candidate-id="${c.id}" onclick="MapView.focusCandidate('${c.id}')" style="cursor:pointer">
                     <div class="map-candidate-info">
                         <div class="map-place-name">${catInfo.icon} ${UI.escapeHtml(c.title)}</div>
                         <div class="map-place-address">${UI.escapeHtml(c.address || '')}</div>
@@ -3400,13 +3400,10 @@ const MapView = (() => {
                         </div>
                     </div>
                     <div class="map-candidate-actions">
-                        <button class="btn-icon-sm" title="일정에 추가" onclick="MapView.addCandidateToItinerary('${c.id}')">
+                        <button class="btn-icon-sm" title="일정에 추가" onclick="event.stopPropagation();MapView.addCandidateToItinerary('${c.id}')">
                             <span class="material-symbols-rounded">add_circle</span>
                         </button>
-                        <button class="btn-icon-sm" title="지도에서 보기" onclick="MapView.focusCandidate('${c.id}')">
-                            <span class="material-symbols-rounded">location_on</span>
-                        </button>
-                        <button class="btn-icon-sm danger" title="삭제" onclick="MapView.removeCandidate('${c.id}')">
+                        <button class="btn-icon-sm danger" title="삭제" onclick="event.stopPropagation();MapView.removeCandidate('${c.id}')">
                             <span class="material-symbols-rounded">close</span>
                         </button>
                     </div>
