@@ -1137,6 +1137,7 @@ const Itinerary = (() => {
 
     // ===== 일정 후보 관리 (일정 페이지) =====
     let _candidateTab = 'individual'; // 'individual' | 'course'
+    let _candidateCatFilter = 'all';
 
     function renderItineraryCandidates() {
         const trip = Store.getCurrentTrip();
@@ -1144,12 +1145,21 @@ const Itinerary = (() => {
         const countEl = document.getElementById('itinerary-candidates-count');
         if (!list) return;
 
-        const candidates = trip ? Store.getCandidates(trip.id) : [];
+        const allCandidates = trip ? Store.getCandidates(trip.id) : [];
         const courses = trip ? Store.getCourseCandidates(trip.id) : [];
-        if (countEl) countEl.textContent = candidates.length + courses.length;
+        if (countEl) countEl.textContent = allCandidates.length + courses.length;
+
+        const candidates = _candidateCatFilter === 'all'
+            ? allCandidates
+            : allCandidates.filter(c => c.category === _candidateCatFilter);
 
         const myMemberId = Store.getMyMemberId();
         const trip_ = trip;
+
+        // 카테고리 필터 옵션
+        const catOptions = Object.entries(UI.categoryInfo).map(([key, info]) =>
+            `<option value="${key}" ${_candidateCatFilter === key ? 'selected' : ''}>${info.icon} ${info.label}</option>`
+        ).join('');
 
         // 탭 헤더
         let html = `<div class="candidate-tabs">
@@ -1162,8 +1172,16 @@ const Itinerary = (() => {
         </div>`;
 
         if (_candidateTab === 'individual') {
+            // 카테고리 필터
+            html += `<div class="candidate-filter-row">
+                <select class="candidate-cat-filter" onchange="Itinerary.setCandidateCatFilter(this.value)">
+                    <option value="all" ${_candidateCatFilter === 'all' ? 'selected' : ''}>전체 카테고리</option>
+                    ${catOptions}
+                </select>
+            </div>`;
+
             if (candidates.length === 0) {
-                html += `<div class="empty-state-sm"><p>일정 후보가 없습니다.</p></div>`;
+                html += `<div class="empty-state-sm"><p>${_candidateCatFilter === 'all' ? '일정 후보가 없습니다.' : '해당 카테고리의 후보가 없습니다.'}</p></div>`;
             } else {
                 const dayOptions = trip.days.map(d =>
                     `<option value="${d.id}">Day ${d.dayNumber}</option>`
@@ -1265,6 +1283,11 @@ const Itinerary = (() => {
 
     function setCandidateTab(tab) {
         _candidateTab = tab;
+        renderItineraryCandidates();
+    }
+
+    function setCandidateCatFilter(val) {
+        _candidateCatFilter = val;
         renderItineraryCandidates();
     }
 
@@ -1613,7 +1636,7 @@ const Itinerary = (() => {
         selectTravelMode, editTravelTime, moveItemToCandidate,
         addCandidateToDay, removeCandidateFromList,
         showAddCandidateModal, initCandidatesPanel,
-        setCandidateTab, voteCandidate, voteCourse,
+        setCandidateTab, setCandidateCatFilter, voteCandidate, voteCourse,
         removeCourse, showAddCourseModal
     };
 })();
@@ -3231,6 +3254,7 @@ const MapView = (() => {
     let searchMarker = null;
     let currentFilter = 'all';
     let activeTab = 'places';
+    let mapCandidateCatFilter = 'all';
 
     const DAY_COLORS = [
         '#4F46E5', '#059669', '#DC2626', '#D97706', '#7C3AED',
@@ -3327,23 +3351,53 @@ const MapView = (() => {
         const list = document.getElementById('map-candidates-list');
         if (!list) return;
 
-        const candidates = trip ? Store.getCandidates(trip.id) : [];
+        const allCandidates = trip ? Store.getCandidates(trip.id) : [];
+        const candidates = mapCandidateCatFilter === 'all'
+            ? allCandidates
+            : allCandidates.filter(c => c.category === mapCandidateCatFilter);
+        const myMemberId = Store.getMyMemberId();
+
+        // 카테고리 필터
+        const catOptions = Object.entries(UI.categoryInfo).map(([key, info]) =>
+            `<option value="${key}" ${mapCandidateCatFilter === key ? 'selected' : ''}>${info.icon} ${info.label}</option>`
+        ).join('');
+
+        let html = `<div class="candidate-filter-row">
+            <select class="candidate-cat-filter" onchange="MapView.setMapCandidateCatFilter(this.value)">
+                <option value="all" ${mapCandidateCatFilter === 'all' ? 'selected' : ''}>전체 카테고리</option>
+                ${catOptions}
+            </select>
+        </div>`;
+
         if (candidates.length === 0) {
-            list.innerHTML = `
-                <div class="empty-state-sm">
-                    <p>지도에서 장소를 검색하고<br>"후보에 추가"를 눌러보세요</p>
-                </div>`;
+            html += `<div class="empty-state-sm">
+                <p>${mapCandidateCatFilter === 'all' ? '지도에서 장소를 검색하고<br>"후보에 추가"를 눌러보세요' : '해당 카테고리의 후보가 없습니다.'}</p>
+            </div>`;
+            list.innerHTML = html;
             return;
         }
 
-        list.innerHTML = candidates.map(c => {
+        html += candidates.map(c => {
             const catInfo = UI.categoryInfo[c.category] || UI.categoryInfo.place;
+            const votes = c.votes || [];
+            const voted = myMemberId && votes.includes(myMemberId);
+            const voterNames = votes.map(vid => {
+                const m = (trip.members || []).find(m => m.id === vid);
+                return m ? m.name : '';
+            }).filter(Boolean);
             return `
-                <div class="map-candidate-item">
+                <div class="map-candidate-item" data-candidate-id="${c.id}">
                     <div class="map-candidate-info">
                         <div class="map-place-name">${catInfo.icon} ${UI.escapeHtml(c.title)}</div>
                         <div class="map-place-address">${UI.escapeHtml(c.address || '')}</div>
                         ${c.rating ? `<div class="map-candidate-rating">⭐ ${c.rating}</div>` : ''}
+                        <div class="candidate-vote-row">
+                            <button class="candidate-vote-btn ${voted ? 'voted' : ''}" onclick="event.stopPropagation();MapView.voteMapCandidate('${c.id}')" title="${voted ? '투표 취소' : '투표하기'}">
+                                <span class="material-symbols-rounded">${voted ? 'thumb_up' : 'thumb_up_off_alt'}</span>
+                                <span>${votes.length}</span>
+                            </button>
+                            ${voterNames.length > 0 ? `<span class="candidate-voters">${voterNames.join(', ')}</span>` : ''}
+                        </div>
                     </div>
                     <div class="map-candidate-actions">
                         <button class="btn-icon-sm" title="일정에 추가" onclick="MapView.addCandidateToItinerary('${c.id}')">
@@ -3358,6 +3412,8 @@ const MapView = (() => {
                     </div>
                 </div>`;
         }).join('');
+
+        list.innerHTML = html;
     }
 
     // ===== Google Places Autocomplete =====
@@ -3780,6 +3836,23 @@ const MapView = (() => {
         UI.showToast('후보에서 삭제됨', 'info');
     }
 
+    function setMapCandidateCatFilter(val) {
+        mapCandidateCatFilter = val;
+        renderCandidatesList();
+    }
+
+    function voteMapCandidate(candidateId) {
+        const trip = Store.getCurrentTrip();
+        if (!trip) return;
+        const myMemberId = Store.getMyMemberId();
+        if (!myMemberId) {
+            UI.showToast('멤버를 먼저 설정하세요', 'warning');
+            return;
+        }
+        Store.voteCandidate(trip.id, candidateId, myMemberId);
+        renderCandidatesList();
+    }
+
     function initGoogleMap() {
         const container = document.getElementById('google-map');
         const trip = Store.getCurrentTrip();
@@ -4183,5 +4256,6 @@ const MapView = (() => {
 
     return { render, initGoogleMap, focusMarker, showRoute, setFilter, switchTab,
              searchPlace, addCandidateToItinerary, focusCandidate, removeCandidate,
-             selectSearchResult, closeSearchResults, toggleCandidateMarkers };
+             selectSearchResult, closeSearchResults, toggleCandidateMarkers,
+             setMapCandidateCatFilter, voteMapCandidate };
 })();

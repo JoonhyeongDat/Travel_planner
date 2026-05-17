@@ -1216,6 +1216,25 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     100% { background: transparent; box-shadow: none; }
 }
 
+/* 후보 카테고리 필터 */
+.candidate-filter-row {
+    padding: 0 0 8px;
+}
+.candidate-cat-filter {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    cursor: pointer;
+}
+.candidate-cat-filter:focus {
+    border-color: var(--primary);
+    outline: none;
+}
+
 /* ===== 뷰 모드: 목록(list) ===== */
 .itinerary-content.view-list .day-card {
     border: none;
