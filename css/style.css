@@ -1235,6 +1235,19 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     outline: none;
 }
 
+/* 지도 목록 카테고리 뱃지 */
+.map-cat-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 1px 5px;
+    border-radius: var(--radius-full);
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
 /* ===== 뷰 모드: 목록(list) ===== */
 .itinerary-content.view-list .day-card {
     border: none;

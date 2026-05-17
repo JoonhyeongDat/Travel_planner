@@ -3335,11 +3335,12 @@ const MapView = (() => {
 
         list.innerHTML = places.map((p, i) => {
             const color = DAY_COLORS[(p.dayNumber - 1) % DAY_COLORS.length];
+            const catInfo = UI.categoryInfo[p.category] || UI.categoryInfo.place;
             return `
                 <div class="map-place-item" data-place-index="${i}" onclick="MapView.focusMarker(${i})" style="cursor:pointer">
                     <div class="map-place-marker" style="background:${color}">${i + 1}</div>
                     <div style="flex:1;min-width:0">
-                        <div class="map-place-name">${UI.escapeHtml(p.title)}</div>
+                        <div class="map-place-name">${UI.escapeHtml(p.title)} <span class="map-cat-badge" style="background:${catInfo.color}15;color:${catInfo.color}">${catInfo.icon} ${catInfo.label}</span></div>
                         <div class="map-place-address">Day ${p.dayNumber} · ${UI.escapeHtml(p.address || '')}</div>
                     </div>
                 </div>`;
@@ -3388,7 +3389,7 @@ const MapView = (() => {
             return `
                 <div class="map-candidate-item" data-candidate-id="${c.id}" onclick="MapView.focusCandidate('${c.id}')" style="cursor:pointer">
                     <div class="map-candidate-info">
-                        <div class="map-place-name">${catInfo.icon} ${UI.escapeHtml(c.title)}</div>
+                        <div class="map-place-name">${UI.escapeHtml(c.title)} <span class="map-cat-badge" style="background:${catInfo.color}15;color:${catInfo.color}">${catInfo.icon} ${catInfo.label}</span></div>
                         <div class="map-place-address">${UI.escapeHtml(c.address || '')}</div>
                         ${c.rating ? `<div class="map-candidate-rating">⭐ ${c.rating}</div>` : ''}
                         <div class="candidate-vote-row">
