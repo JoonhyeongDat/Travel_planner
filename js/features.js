@@ -3836,6 +3836,10 @@ const MapView = (() => {
     function setMapCandidateCatFilter(val) {
         mapCandidateCatFilter = val;
         renderCandidatesList();
+        if (showCandidates) {
+            const trip = Store.getCurrentTrip();
+            if (trip) renderCandidateMarkers(trip, null);
+        }
     }
 
     function voteMapCandidate(candidateId) {
@@ -3848,6 +3852,10 @@ const MapView = (() => {
         }
         Store.voteCandidate(trip.id, candidateId, myMemberId);
         renderCandidatesList();
+        if (showCandidates) {
+            const updated = Store.getCurrentTrip();
+            if (updated) renderCandidateMarkers(updated, null);
+        }
     }
 
     function initGoogleMap() {
@@ -3975,20 +3983,25 @@ const MapView = (() => {
     function renderCandidateMarkers(trip, bounds) {
         clearCandidateMarkers();
         if (!trip || !map) return;
-        const candidates = (trip.candidates || []).filter(c => c.lat && c.lng);
+        let candidates = (trip.candidates || []).filter(c => c.lat && c.lng);
+        if (mapCandidateCatFilter !== 'all') {
+            candidates = candidates.filter(c => c.category === mapCandidateCatFilter);
+        }
         candidates.forEach((c, i) => {
             const catInfo = UI.categoryInfo[c.category] || UI.categoryInfo.place;
             const pos = { lat: c.lat, lng: c.lng };
+            const voteCount = (c.votes || []).length;
+            const labelText = voteCount > 0 ? `+${voteCount}` : '★';
 
             const marker = new google.maps.Marker({
                 position: pos,
                 map: map,
                 title: c.title,
                 label: {
-                    text: '★',
+                    text: labelText,
                     color: '#D97706',
                     fontWeight: 'bold',
-                    fontSize: '11px'
+                    fontSize: voteCount > 0 ? '10px' : '11px'
                 },
                 icon: {
                     path: google.maps.SymbolPath.CIRCLE,
