@@ -168,6 +168,9 @@ const Itinerary = (() => {
                 <div class="travel-modes">
                     <span class="travel-no-data"><span class="material-symbols-rounded">more_vert</span></span>
                 </div>
+                <button class="travel-edit-btn" style="opacity:1" onclick="Itinerary.editTravelTime('${dayId}','${fromItem.id}')" title="이동 시간 직접 입력">
+                    <span class="material-symbols-rounded">edit</span>
+                </button>
             </div>`;
         }
 
