@@ -3774,6 +3774,7 @@ const MapView = (() => {
         const ratingEl = document.getElementById('map-place-card-rating');
         const addrEl = document.getElementById('map-place-card-address');
         const gmapsLink = document.getElementById('btn-card-gmaps');
+        const tabelogLink = document.getElementById('btn-card-tabelog');
 
         if (photoUrl) {
             photoDiv.style.backgroundImage = `url('${photoUrl}')`;
@@ -3788,6 +3789,14 @@ const MapView = (() => {
         gmapsLink.href = place.place_id
             ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name || '')}&query_place_id=${place.place_id}`
             : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name || lat + ',' + lng)}`;
+
+        // タベログ link (food category only)
+        if (autoCategory === 'food' && tabelogLink) {
+            tabelogLink.href = `https://tabelog.com/rstLst/?vs=1&sa=&sk=${encodeURIComponent(place.name || '')}`;
+            tabelogLink.classList.remove('hidden');
+        } else if (tabelogLink) {
+            tabelogLink.classList.add('hidden');
+        }
 
         card.classList.add('show');
     }
@@ -4230,6 +4239,10 @@ const MapView = (() => {
                        style="display:inline-block;margin-top:8px;font-size:11px;color:#1a73e8;text-decoration:none">
                         Google Maps에서 보기 →
                     </a>
+                    ${c.category === 'food' ? `<a href="https://tabelog.com/rstLst/?vs=1&sa=&sk=${encodeURIComponent(c.title)}" target="_blank" rel="noopener"
+                       style="display:inline-block;margin-top:4px;margin-left:8px;font-size:11px;color:#c00;text-decoration:none;font-weight:600">
+                        🍽 タベログ →
+                    </a>` : ''}
                 </div>`;
 
             const infoWindow = new google.maps.InfoWindow({ content: infoContent });
@@ -4345,6 +4358,10 @@ const MapView = (() => {
                    style="display:inline-block;margin-top:8px;font-size:11px;color:#1a73e8;text-decoration:none">
                     Google Maps에서 보기 →
                 </a>
+                ${place.category === 'food' ? `<a href="https://tabelog.com/rstLst/?vs=1&sa=&sk=${encodeURIComponent(place.title)}" target="_blank" rel="noopener"
+                   style="display:inline-block;margin-top:4px;margin-left:8px;font-size:11px;color:#c00;text-decoration:none;font-weight:600">
+                    🍽 タベログ →
+                </a>` : ''}
             </div>`;
 
         const infoWindow = new google.maps.InfoWindow({ content: infoContent });
