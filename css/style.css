@@ -1207,6 +1207,27 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     accent-color: var(--primary);
 }
 
+/* 지도 마커 오버레이 뱃지 */
+.map-marker-cat {
+    display: block;
+    font-size: 14px;
+    line-height: 1;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    filter: drop-shadow(0 0 1px white);
+}
+.map-marker-vote {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    color: #fff;
+    background: #F472B6;
+    padding: 1px 4px;
+    border-radius: 8px;
+    line-height: 1.3;
+    white-space: nowrap;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
 /* 지도 장소 목록 하이라이트 */
 .map-place-highlight {
     animation: placeHighlight 2s ease-out;
@@ -2136,16 +2157,16 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     white-space: nowrap;
     user-select: none;
 }
-.map-toggle-label:hover { border-color: #D97706; color: #D97706; }
+.map-toggle-label:hover { border-color: #F472B6; color: #F472B6; }
 .map-toggle-label:has(input:checked) {
-    background: #FEF3C7;
-    border-color: #D97706;
-    color: #92400E;
+    background: #FDF2F8;
+    border-color: #F472B6;
+    color: #BE185D;
 }
 .map-toggle-label input[type="checkbox"] {
     width: 14px;
     height: 14px;
-    accent-color: #D97706;
+    accent-color: #F472B6;
     margin: 0;
 }
 .map-container {

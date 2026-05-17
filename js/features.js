@@ -3245,8 +3245,10 @@ const MapView = (() => {
     let map = null;
     let markers = [];
     let infoWindows = [];
+    let markerOverlays = [];
     let candidateMarkers = [];
     let candidateInfoWindows = [];
+    let candidateOverlays = [];
     let showCandidates = true;
     let directionsRenderer = null;
     let geocoder = null;
@@ -3260,6 +3262,48 @@ const MapView = (() => {
         '#4F46E5', '#059669', '#DC2626', '#D97706', '#7C3AED',
         '#EC4899', '#0891B2', '#16A34A', '#B45309', '#6366F1'
     ];
+
+    const CANDIDATE_COLOR = '#F472B6';
+    const CANDIDATE_BG = '#FDF2F8';
+
+    // 지도 마커 옆 작은 라벨 오버레이
+    let MapLabelOverlay = null;
+    function ensureOverlayClass() {
+        if (MapLabelOverlay) return;
+        MapLabelOverlay = class extends google.maps.OverlayView {
+            constructor(position, html, offset, zIndex) {
+                super();
+                this.position = position;
+                this.html = html;
+                this.offset = offset;
+                this.zIdx = zIndex || 1;
+                this.div = null;
+            }
+            onAdd() {
+                this.div = document.createElement('div');
+                this.div.style.position = 'absolute';
+                this.div.style.zIndex = this.zIdx;
+                this.div.style.pointerEvents = 'none';
+                this.div.innerHTML = this.html;
+                this.getPanes().overlayMouseTarget.appendChild(this.div);
+            }
+            draw() {
+                const proj = this.getProjection();
+                if (!proj) return;
+                const pos = proj.fromLatLngToDivPixel(this.position);
+                if (this.div && pos) {
+                    this.div.style.left = (pos.x + this.offset.x) + 'px';
+                    this.div.style.top = (pos.y + this.offset.y) + 'px';
+                }
+            }
+            onRemove() {
+                if (this.div && this.div.parentNode) {
+                    this.div.parentNode.removeChild(this.div);
+                    this.div = null;
+                }
+            }
+        };
+    }
 
     function render() {
         const trip = Store.getCurrentTrip();
@@ -3923,7 +3967,10 @@ const MapView = (() => {
         markers = [];
         infoWindows.forEach(iw => { if (iw) iw.close(); });
         infoWindows = [];
+        markerOverlays.forEach(o => o.setMap(null));
+        markerOverlays = [];
         clearCandidateMarkers();
+        ensureOverlayClass();
         if (directionsRenderer) {
             directionsRenderer.setMap(null);
             directionsRenderer = null;
@@ -3984,6 +4031,7 @@ const MapView = (() => {
     function renderCandidateMarkers(trip, bounds) {
         clearCandidateMarkers();
         if (!trip || !map) return;
+        ensureOverlayClass();
         let candidates = (trip.candidates || []).filter(c => c.lat && c.lng);
         if (mapCandidateCatFilter !== 'all') {
             candidates = candidates.filter(c => c.category === mapCandidateCatFilter);
@@ -3992,23 +4040,22 @@ const MapView = (() => {
             const catInfo = UI.categoryInfo[c.category] || UI.categoryInfo.place;
             const pos = { lat: c.lat, lng: c.lng };
             const voteCount = (c.votes || []).length;
-            const labelText = voteCount > 0 ? `+${voteCount}` : '★';
 
             const marker = new google.maps.Marker({
                 position: pos,
                 map: map,
                 title: c.title,
                 label: {
-                    text: labelText,
-                    color: '#D97706',
+                    text: '★',
+                    color: CANDIDATE_COLOR,
                     fontWeight: 'bold',
-                    fontSize: voteCount > 0 ? '10px' : '11px'
+                    fontSize: '11px'
                 },
                 icon: {
                     path: google.maps.SymbolPath.CIRCLE,
-                    fillColor: '#FFFBEB',
+                    fillColor: CANDIDATE_BG,
                     fillOpacity: 1,
-                    strokeColor: '#D97706',
+                    strokeColor: CANDIDATE_COLOR,
                     strokeWeight: 2.5,
                     scale: 16,
                     labelOrigin: new google.maps.Point(0, 0)
@@ -4020,11 +4067,11 @@ const MapView = (() => {
             const infoContent = `
                 <div style="font-family:'Noto Sans KR',sans-serif;max-width:250px;padding:4px">
                     <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
-                        <span style="background:#FEF3C7;color:#D97706;font-size:0.65rem;font-weight:700;padding:2px 6px;border-radius:4px">후보</span>
+                        <span style="background:${CANDIDATE_BG};color:${CANDIDATE_COLOR};font-size:0.65rem;font-weight:700;padding:2px 6px;border-radius:4px">후보</span>
                         <span style="font-weight:700;font-size:14px">${catInfo.icon} ${UI.escapeHtml(c.title)}</span>
                     </div>
                     ${c.address ? `<div style="font-size:12px;color:#888;margin-bottom:4px">${UI.escapeHtml(c.address)}</div>` : ''}
-                    ${c.rating ? `<div style="font-size:12px;color:#D97706;margin-bottom:4px">⭐ ${c.rating}</div>` : ''}
+                    ${c.rating ? `<div style="font-size:12px;color:${CANDIDATE_COLOR};margin-bottom:4px">⭐ ${c.rating}</div>` : ''}
                     ${c.notes ? `<div style="font-size:12px;color:#555;margin-top:6px;border-top:1px solid #eee;padding-top:6px">${UI.escapeHtml(c.notes)}</div>` : ''}
                     <a href="https://www.google.com/maps/search/?api=1&query=${c.lat},${c.lng}" target="_blank" rel="noopener"
                        style="display:inline-block;margin-top:8px;font-size:11px;color:#1a73e8;text-decoration:none">
@@ -4039,12 +4086,31 @@ const MapView = (() => {
                 infoWindows.forEach(iw => { if (iw) iw.close(); });
                 candidateInfoWindows.forEach(iw => { if (iw) iw.close(); });
                 infoWindow.open(map, marker);
-                // 후보 탭으로 전환 & 스크롤
                 scrollToCandidateItem(c.id);
             });
 
             candidateMarkers.push(marker);
             if (bounds) bounds.extend(pos);
+
+            // 투표 수 오버레이 (마커 우상단)
+            if (voteCount > 0) {
+                const voteOverlay = new MapLabelOverlay(
+                    new google.maps.LatLng(pos.lat, pos.lng),
+                    `<span class="map-marker-vote">+${voteCount}</span>`,
+                    { x: 8, y: -28 }, 2
+                );
+                voteOverlay.setMap(map);
+                candidateOverlays.push(voteOverlay);
+            }
+
+            // 카테고리 아이콘 오버레이 (마커 아래)
+            const catOverlay = new MapLabelOverlay(
+                new google.maps.LatLng(pos.lat, pos.lng),
+                `<span class="map-marker-cat">${catInfo.icon}</span>`,
+                { x: -10, y: 12 }, 1
+            );
+            catOverlay.setMap(map);
+            candidateOverlays.push(catOverlay);
         });
     }
 
@@ -4053,6 +4119,8 @@ const MapView = (() => {
         candidateMarkers = [];
         candidateInfoWindows.forEach(iw => iw.close());
         candidateInfoWindows = [];
+        candidateOverlays.forEach(o => o.setMap(null));
+        candidateOverlays = [];
     }
 
     function toggleCandidateMarkers(checked) {
@@ -4137,6 +4205,15 @@ const MapView = (() => {
 
         markers[index] = marker;
         bounds.extend(pos);
+
+        // 카테고리 아이콘 오버레이 (마커 아래)
+        const catOverlay = new MapLabelOverlay(
+            new google.maps.LatLng(pos.lat, pos.lng),
+            `<span class="map-marker-cat">${catInfo.icon}</span>`,
+            { x: -10, y: 12 }, 1
+        );
+        catOverlay.setMap(map);
+        markerOverlays.push(catOverlay);
     }
 
     function focusMarker(index) {
