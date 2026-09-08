@@ -92,6 +92,9 @@ const App = (() => {
         const ok = FirebaseSync.init();
         if (!ok) return;
 
+        // 실시간 접속자 표시
+        if (typeof Presence !== 'undefined') Presence.init();
+
         // 서버에서 초기 데이터 가져오기 (완료 전까지 push 차단)
         FirebaseSync.pullData().then(remoteData => {
             if (remoteData && remoteData.trips && remoteData.trips.length > 0) {
@@ -201,6 +204,7 @@ const App = (() => {
                 Store.setCurrentTrip(e.target.value);
                 updateDashboard();
                 renderCurrentPage();
+                if (typeof Presence !== 'undefined') Presence.refresh();
             }
         });
 
@@ -307,6 +311,7 @@ const App = (() => {
     function navigateTo(page) {
         if (!page || page === currentPage) return;
         currentPage = page;
+        if (typeof Presence !== 'undefined') Presence.setPage(page);
 
         // 페이지 활성화
         document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));

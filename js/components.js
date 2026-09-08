@@ -34,6 +34,7 @@ const UI = (() => {
     }
 
     function closeModal() {
+        if (typeof Presence !== 'undefined') Presence.clearFocus();
         const overlay = document.getElementById('modal-overlay');
         overlay.style.display = 'none';
         document.body.style.overflow = '';

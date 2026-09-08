@@ -544,6 +544,7 @@ const Itinerary = (() => {
     function showAddItemModal(dayId, insertIndex) {
         const trip = Store.getCurrentTrip();
         if (!trip) return;
+        if (typeof Presence !== 'undefined') Presence.setFocus('day', dayId, '일정 추가 중');
 
         const catOptions = Object.entries(UI.categoryInfo).map(([key, val]) =>
             `<option value="${key}">${val.icon} ${val.label}</option>`
@@ -848,6 +849,7 @@ const Itinerary = (() => {
         if (!day) return;
         const item = day.items.find(i => i.id === itemId);
         if (!item) return;
+        if (typeof Presence !== 'undefined') Presence.setFocus('item', itemId, (item.title || '일정') + ' 수정 중');
 
         const catOptions = Object.entries(UI.categoryInfo).map(([key, val]) =>
             `<option value="${key}" ${item.category === key ? 'selected' : ''}>${val.icon} ${val.label}</option>`
@@ -1484,6 +1486,7 @@ const Itinerary = (() => {
     }
 
     function showAddCandidateModal() {
+        if (typeof Presence !== 'undefined') Presence.setFocus('page', '', '후보 추가 중');
         const trip = Store.getCurrentTrip();
         if (!trip) { UI.showToast('먼저 여행을 생성해주세요', 'warning'); return; }
 

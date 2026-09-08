@@ -3748,3 +3748,114 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     outline: 2px solid var(--primary);
     outline-offset: 2px;
 }
+
+/* ===================================
+   실시간 접속자 표시 (Presence)
+   =================================== */
+.presence-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-right: 4px;
+}
+
+.presence-avatar {
+    position: relative;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 0.78rem;
+    font-weight: 700;
+    border: 2px solid var(--bg-card, #fff);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+    cursor: default;
+    flex-shrink: 0;
+}
+
+.presence-avatar + .presence-avatar {
+    margin-left: -10px;
+}
+
+/* 접속 표시 점 */
+.presence-avatar::before {
+    content: '';
+    position: absolute;
+    right: -1px;
+    bottom: -1px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #22C55E;
+    border: 2px solid var(--bg-card, #fff);
+}
+
+/* 호버 시 "이름 — 일정표 · 시부야 스카이 수정 중" */
+.presence-avatar:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    white-space: nowrap;
+    background: var(--text-primary, #1f2937);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 6px 10px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+    z-index: 60;
+    pointer-events: none;
+}
+
+.presence-count {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+/* 다른 사람이 편집 중인 카드 */
+.presence-editing {
+    position: relative;
+    outline: 2px solid var(--presence-color, var(--primary));
+    outline-offset: 1px;
+    border-radius: var(--radius-md, 10px);
+}
+
+.presence-badge {
+    position: absolute;
+    top: -10px;
+    right: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 9px 2px 3px;
+    border-radius: 999px;
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 600;
+    line-height: 1.7;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    pointer-events: none;
+    z-index: 5;
+    white-space: nowrap;
+}
+
+.presence-badge-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 17px;
+    height: 17px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    font-size: 0.65rem;
+}
+
+@media (max-width: 640px) {
+    .presence-count { display: none; }
+    .presence-avatar { width: 26px; height: 26px; font-size: 0.7rem; }
+}
