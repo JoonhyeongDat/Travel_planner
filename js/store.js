@@ -772,13 +772,18 @@ const Store = (() => {
         generateId,
         save: () => save(_data),
         // Firebase에서 원격 데이터 적용 (다른 사용자 변경)
+        // settings는 기기별 개인 설정(내가 누구인지, 테마 등)이므로 로컬 값 유지
         applyRemoteData: (remoteData) => {
+            const mySettings = _data.settings || {};
             _data = { ...defaultData, ...remoteData };
+            _data.settings = { ...defaultData.settings, ...(remoteData.settings || {}), ...mySettings };
             localStorage.setItem(STORAGE_KEY, JSON.stringify(_data));
         },
-        // Firebase 초기 데이터 로드 (로컬보다 원격 우선)
+        // Firebase 초기 데이터 로드 (병합 결과 적용)
         loadRemoteData: (remoteData) => {
+            const mySettings = _data.settings || {};
             _data = { ...defaultData, ...remoteData };
+            _data.settings = { ...defaultData.settings, ...(remoteData.settings || {}), ...mySettings };
             localStorage.setItem(STORAGE_KEY, JSON.stringify(_data));
         },
         reset: () => {

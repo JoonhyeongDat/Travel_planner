@@ -155,6 +155,123 @@ const FirebaseSync = (() => {
         }
     }
 
+
+    // ===================================
+    //  병합 (초기 동기화 전용)
+    //  원칙: 한쪽에만 있는 데이터는 절대 버리지 않는다.
+    //  같은 id가 양쪽에 있으면 updatedAt이 최신인 쪽 값을 쓴다.
+    // ===================================
+
+    // id 기준 합집합. mergeItem이 있으면 양쪽에 있는 항목을 재귀 병합
+    function unionById(newerArr, olderArr, mergeItem) {
+        const newer = ensureArray(newerArr);
+        const older = ensureArray(olderArr);
+        const all = newer.concat(older);
+        const hasIds = all.length > 0 && all.every(e => e && typeof e === 'object' && e.id);
+
+        // 투표 memberId 배열처럼 id가 없는 값들은 값 기준 합집합
+        if (!hasIds) {
+            const seen = new Set();
+            const out = [];
+            all.forEach(v => {
+                const key = (v !== null && typeof v === 'object') ? JSON.stringify(v) : String(v);
+                if (!seen.has(key)) { seen.add(key); out.push(v); }
+            });
+            return out;
+        }
+
+        const olderMap = new Map(older.map(e => [e.id, e]));
+        const out = newer.map(n => {
+            const o = olderMap.get(n.id);
+            olderMap.delete(n.id);
+            if (!o) return n;
+            return mergeItem ? mergeItem(n, o) : { ...o, ...n };
+        });
+        olderMap.forEach(o => out.push(o)); // 오래된 쪽에만 있던 것도 살림
+        return out;
+    }
+
+    function mergeItineraryItem(n, o) {
+        return {
+            ...o, ...n,
+            comments: unionById(n.comments, o.comments),
+            candidateVotes: unionById(n.candidateVotes, o.candidateVotes)
+        };
+    }
+
+    function mergeDay(n, o) {
+        return { ...o, ...n, items: unionById(n.items, o.items, mergeItineraryItem) };
+    }
+
+    function mergeChecklistCategory(n, o) {
+        return { ...o, ...n, items: unionById(n.items, o.items) };
+    }
+
+    // 후보 / 코스후보: 투표는 양쪽 합집합
+    function mergeVotable(n, o) {
+        const merged = { ...o, ...n, votes: unionById(n.votes, o.votes) };
+        if (n.candidateIds || o.candidateIds) {
+            merged.candidateIds = unionById(n.candidateIds, o.candidateIds);
+        }
+        return merged;
+    }
+
+    function mergeActivityLog(a, b) {
+        const merged = unionById(a, b);
+        merged.sort((x, y) => String(y.timestamp || '').localeCompare(String(x.timestamp || '')));
+        return merged.slice(0, 100);
+    }
+
+    // 여행 하나를 병합. updatedAt이 최신인 쪽이 스칼라 필드(이름/날짜 등) 우선
+    function mergeTrip(tripA, tripB) {
+        if (!tripA) return tripB;
+        if (!tripB) return tripA;
+        const a = sanitizeTrip(JSON.parse(JSON.stringify(tripA)));
+        const b = sanitizeTrip(JSON.parse(JSON.stringify(tripB)));
+        const stampA = a.updatedAt || a.createdAt || '';
+        const stampB = b.updatedAt || b.createdAt || '';
+        const n = stampA >= stampB ? a : b; // newer
+        const o = stampA >= stampB ? b : a; // older
+
+        const days = unionById(n.days, o.days, mergeDay);
+        days.sort((x, y) => (x.dayNumber || 0) - (y.dayNumber || 0));
+
+        return {
+            ...o, ...n,
+            days,
+            members: unionById(n.members, o.members),
+            reservations: unionById(n.reservations, o.reservations),
+            expenses: unionById(n.expenses, o.expenses),
+            checklist: unionById(n.checklist, o.checklist, mergeChecklistCategory),
+            journals: unionById(n.journals, o.journals),
+            favorites: unionById(n.favorites, o.favorites),
+            candidates: unionById(n.candidates, o.candidates, mergeVotable),
+            courseCandidates: unionById(n.courseCandidates, o.courseCandidates, mergeVotable),
+            activityLog: mergeActivityLog(n.activityLog, o.activityLog)
+        };
+    }
+
+    // 로컬 + 원격 전체 병합. settings는 기기별 설정이므로 항상 로컬 우선
+    function mergeData(localData, remoteData) {
+        const local = sanitizeData(JSON.parse(JSON.stringify(localData || {}))) || {};
+        const remote = sanitizeData(JSON.parse(JSON.stringify(remoteData || {}))) || {};
+
+        const remoteMap = new Map(ensureArray(remote.trips).map(t => [t.id, t]));
+        const trips = ensureArray(local.trips).map(lt => {
+            const rt = remoteMap.get(lt.id);
+            remoteMap.delete(lt.id);
+            return rt ? mergeTrip(lt, rt) : lt;
+        });
+        remoteMap.forEach(rt => trips.push(rt)); // 원격에만 있는 여행도 유지
+
+        return {
+            ...remote, ...local,
+            trips,
+            currentTripId: local.currentTripId || remote.currentTripId || null,
+            settings: { ...(remote.settings || {}), ...(local.settings || {}) }
+        };
+    }
+
     function isConnected() {
         return db !== null;
     }
@@ -165,6 +282,8 @@ const FirebaseSync = (() => {
         startListening,
         pullData,
         isConnected,
-        setReady
+        setReady,
+        mergeData,
+        mergeTrip
     };
 })();

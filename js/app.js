@@ -28,10 +28,15 @@ const App = (() => {
             // 현재 선택된 여행이 그룹에 있으면 그것을 최우선 유지
             const currentIdx = group.findIndex(t => t.id === currentTripId);
             const keepTrip = currentIdx >= 0 ? group[currentIdx] : group[0];
+            // 삭제 전에 내용을 병합해서 흡수 (중복 여행에만 있던 일정 보존)
             group.forEach(t => {
-                if (t.id !== keepTrip.id) {
-                    Store.deleteTrip(t.id);
+                if (t.id === keepTrip.id) return;
+                if (typeof FirebaseSync !== 'undefined' && FirebaseSync.mergeTrip) {
+                    const merged = FirebaseSync.mergeTrip(keepTrip, t);
+                    merged.id = keepTrip.id;
+                    Store.updateTrip(keepTrip.id, merged);
                 }
+                Store.deleteTrip(t.id);
             });
         });
     }
@@ -90,21 +95,9 @@ const App = (() => {
         // 서버에서 초기 데이터 가져오기 (완료 전까지 push 차단)
         FirebaseSync.pullData().then(remoteData => {
             if (remoteData && remoteData.trips && remoteData.trips.length > 0) {
-                // 원격 데이터가 있으면 로컬 데이터와 병합
-                const localData = Store.getData();
-                const localHasData = localData.trips && localData.trips.length > 0;
-
-                if (localHasData) {
-                    const mergedTrips = [...remoteData.trips];
-                    localData.trips.forEach(lt => {
-                        if (!mergedTrips.find(rt => rt.id === lt.id)) {
-                            mergedTrips.push(lt);
-                        }
-                    });
-                    remoteData.trips = mergedTrips;
-                }
-
-                Store.loadRemoteData(remoteData);
+                // 로컬과 원격을 항목 단위로 병합 (한쪽에만 있는 데이터도 보존)
+                const merged = FirebaseSync.mergeData(Store.getData(), remoteData);
+                Store.loadRemoteData(merged);
                 deduplicateTrips();
                 loadTripList();
                 updateDashboard();
