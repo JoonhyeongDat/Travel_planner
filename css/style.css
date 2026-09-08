@@ -3859,3 +3859,113 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     .presence-count { display: none; }
     .presence-avatar { width: 26px; height: 26px; font-size: 0.7rem; }
 }
+
+/* ===================================
+   지도 - 장소 검색해서 추가
+   =================================== */
+.map-panel-actions {
+    padding: 10px 12px 4px;
+}
+
+.btn-add-place {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 9px 12px;
+    border: 1.5px dashed var(--primary-light, #a5b4fc);
+    background: var(--primary-bg, #eef2ff);
+    color: var(--primary, #4F46E5);
+    border-radius: var(--radius-md, 10px);
+    font-size: 0.85rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.btn-add-place:hover {
+    background: var(--primary, #4F46E5);
+    border-color: var(--primary, #4F46E5);
+    border-style: solid;
+    color: #fff;
+}
+
+.btn-add-place .material-symbols-rounded {
+    font-size: 1.1rem;
+}
+
+.place-add-results {
+    margin-top: 4px;
+    max-height: 340px;
+    overflow-y: auto;
+    border: 1px solid var(--border-light, #e5e7eb);
+    border-radius: var(--radius-md, 10px);
+}
+
+.place-add-empty {
+    padding: 22px 14px;
+    text-align: center;
+    color: var(--text-tertiary, #9ca3af);
+    font-size: 0.85rem;
+}
+
+.place-add-result {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border-light, #e5e7eb);
+    transition: background 0.12s;
+}
+
+.place-add-result:last-child {
+    border-bottom: none;
+}
+
+.place-add-result:hover {
+    background: var(--primary-bg, #eef2ff);
+}
+
+.place-add-thumb {
+    width: 42px;
+    height: 42px;
+    border-radius: var(--radius-sm, 8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.15rem;
+    flex-shrink: 0;
+}
+
+.place-add-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.place-add-name {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.place-add-addr {
+    font-size: 0.76rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
+}
+
+.place-add-rating {
+    font-size: 0.76rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    flex-shrink: 0;
+}

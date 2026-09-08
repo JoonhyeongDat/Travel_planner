@@ -3575,6 +3575,7 @@ const MapView = (() => {
     // ===== Google Places Autocomplete =====
     let placesService = null;
     let currentPlaceData = null;
+    let _addSearchResults = [];   // 장소 검색 모달의 결과 목록
 
     function initAutocomplete() {
         const input = document.getElementById('map-search-input');
@@ -3796,12 +3797,7 @@ const MapView = (() => {
         });
 
         // 카테고리 자동 감지
-        const types = place.types || [];
-        let autoCategory = 'place';
-        if (types.some(t => ['restaurant', 'food', 'cafe', 'bakery', 'bar', 'meal_delivery', 'meal_takeaway'].includes(t))) autoCategory = 'food';
-        else if (types.some(t => ['lodging', 'hotel'].includes(t))) autoCategory = 'accommodation';
-        else if (types.some(t => ['shopping_mall', 'store', 'clothing_store', 'shoe_store', 'jewelry_store'].includes(t))) autoCategory = 'shopping';
-        else if (types.some(t => ['tourist_attraction', 'museum', 'amusement_park', 'aquarium', 'zoo', 'art_gallery', 'stadium', 'park'].includes(t))) autoCategory = 'activity';
+        const autoCategory = categoryFromTypes(place.types);
 
         // 사진
         let photoUrl = '';
@@ -3852,6 +3848,168 @@ const MapView = (() => {
     }
 
     // ===== 일정에 추가 모달 =====
+    // ===== 장소 검색해서 일정에 추가 =====
+    function categoryFromTypes(types) {
+        const t = types || [];
+        if (t.some(x => ['restaurant', 'food', 'cafe', 'bakery', 'bar', 'meal_delivery', 'meal_takeaway'].includes(x))) return 'food';
+        if (t.some(x => ['lodging', 'hotel'].includes(x))) return 'accommodation';
+        if (t.some(x => ['shopping_mall', 'store', 'clothing_store', 'shoe_store', 'jewelry_store'].includes(x))) return 'shopping';
+        if (t.some(x => ['tourist_attraction', 'museum', 'amusement_park', 'aquarium', 'zoo', 'art_gallery', 'stadium', 'park'].includes(x))) return 'activity';
+        return 'place';
+    }
+
+    // 지도가 아직 없어도 검색만은 가능하도록 임시 컨테이너 허용
+    function ensurePlacesService() {
+        if (placesService) return placesService;
+        if (typeof google === 'undefined' || !google.maps || !google.maps.places) return null;
+        try {
+            placesService = new google.maps.places.PlacesService(map || document.createElement('div'));
+        } catch (e) {
+            placesService = null;
+        }
+        return placesService;
+    }
+
+    function showPlaceSearchModal() {
+        const trip = Store.getCurrentTrip();
+        if (!trip) { UI.showToast('먼저 여행을 생성해주세요', 'warning'); return; }
+        if (!trip.days || trip.days.length === 0) { UI.showToast('먼저 일정(Day)을 추가해주세요', 'warning'); return; }
+        if (typeof google === 'undefined' || !google.maps) { UI.showToast('Google Maps API를 로드할 수 없습니다', 'warning'); return; }
+
+        if (typeof Presence !== 'undefined') Presence.setFocus('page', '', '장소 검색 중');
+        _addSearchResults = [];
+
+        UI.showModal('📍 장소 검색해서 추가', `
+            <div class="form-group">
+                <label class="form-label">장소 검색</label>
+                <div style="display:flex;gap:8px">
+                    <input type="text" id="place-add-search" placeholder="장소명 검색 (예: 도쿄타워, 이치란 라멘)" style="flex:1" />
+                    <button class="btn-primary btn-sm" id="btn-place-add-search" type="button" style="white-space:nowrap">
+                        <span class="material-symbols-rounded" style="font-size:1rem">search</span> 검색
+                    </button>
+                </div>
+            </div>
+            <div id="place-add-results" class="place-add-results">
+                <div class="place-add-empty">검색어를 입력하고 엔터를 누르세요</div>
+            </div>
+        `, `<button class="btn-outline" onclick="UI.closeModal()">닫기</button>`, {
+            onOpen: () => {
+                const btn = document.getElementById('btn-place-add-search');
+                if (btn) btn.onclick = runPlaceAddSearch;
+                const input = document.getElementById('place-add-search');
+                if (input) {
+                    input.addEventListener('keydown', (e) => {
+                        if (e.key === 'Enter') { e.preventDefault(); runPlaceAddSearch(); }
+                    });
+                    input.focus();
+                }
+            }
+        });
+    }
+
+    function runPlaceAddSearch() {
+        const input = document.getElementById('place-add-search');
+        const box = document.getElementById('place-add-results');
+        if (!input || !box) return;
+        const query = input.value.trim();
+        if (!query) return;
+
+        box.innerHTML = '<div class="place-add-empty">검색 중...</div>';
+
+        const svc = ensurePlacesService();
+        if (!svc) { geocodeForAdd(query); return; }
+
+        const req = { query: query };
+        if (map) { req.location = map.getCenter(); req.radius = 50000; }
+        svc.textSearch(req, (results, status) => {
+            if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
+                renderPlaceAddResults(results);
+            } else {
+                geocodeForAdd(query);
+            }
+        });
+    }
+
+    // Places가 실패하면 주소 검색으로 대체
+    function geocodeForAdd(query) {
+        if (!geocoder) {
+            try { geocoder = new google.maps.Geocoder(); } catch (e) { geocoder = null; }
+        }
+        if (!geocoder) { renderPlaceAddResults([]); return; }
+        geocoder.geocode({ address: query }, (results, status) => {
+            if (status === 'OK' && results && results.length > 0) {
+                renderPlaceAddResults(results.map(r => ({
+                    name: query,
+                    formatted_address: r.formatted_address,
+                    geometry: r.geometry,
+                    place_id: r.place_id,
+                    types: r.types || [],
+                    rating: null,
+                    photos: null
+                })));
+            } else {
+                renderPlaceAddResults([]);
+            }
+        });
+    }
+
+    function renderPlaceAddResults(results) {
+        const box = document.getElementById('place-add-results');
+        if (!box) return;
+        _addSearchResults = results || [];
+
+        if (_addSearchResults.length === 0) {
+            box.innerHTML = '<div class="place-add-empty">검색 결과가 없습니다. 다른 이름으로 시도해보세요.</div>';
+            return;
+        }
+
+        box.innerHTML = _addSearchResults.slice(0, 15).map((p, i) => {
+            const catInfo = UI.categoryInfo[categoryFromTypes(p.types)] || UI.categoryInfo.place;
+            let photo = '';
+            if (p.photos && p.photos.length > 0) {
+                try { photo = p.photos[0].getUrl({ maxWidth: 80, maxHeight: 80 }); } catch (e) { }
+            }
+            const thumbStyle = photo
+                ? `background-image:url('${photo}');background-size:cover;background-position:center`
+                : `background:${catInfo.color}15;color:${catInfo.color}`;
+            return `
+                <div class="place-add-result" onclick="MapView.selectSearchAddResult(${i})">
+                    <div class="place-add-thumb" style="${thumbStyle}">${photo ? '' : catInfo.icon}</div>
+                    <div class="place-add-info">
+                        <div class="place-add-name">${UI.escapeHtml(p.name || '')}</div>
+                        <div class="place-add-addr">${UI.escapeHtml(p.formatted_address || '')}</div>
+                    </div>
+                    ${p.rating ? `<div class="place-add-rating">⭐ ${p.rating}</div>` : ''}
+                </div>`;
+        }).join('');
+    }
+
+    function selectSearchAddResult(index) {
+        const place = _addSearchResults[index];
+        if (!place || !place.geometry || !place.geometry.location) return;
+
+        const loc = place.geometry.location;
+        const lat = typeof loc.lat === 'function' ? loc.lat() : loc.lat;
+        const lng = typeof loc.lng === 'function' ? loc.lng() : loc.lng;
+
+        let photoUrl = '';
+        if (place.photos && place.photos.length > 0) {
+            try { photoUrl = place.photos[0].getUrl({ maxWidth: 400 }); } catch (e) { }
+        }
+
+        UI.closeModal();
+        showAddToItineraryModal({
+            title: place.name || '',
+            address: place.formatted_address || '',
+            lat: lat,
+            lng: lng,
+            category: categoryFromTypes(place.types),
+            imageUrl: photoUrl,
+            placeId: place.place_id || '',
+            rating: place.rating || null
+        });
+    }
+
     function showAddToItineraryModal(placeData, removeCandidateId) {
         const trip = Store.getCurrentTrip();
         if (!trip || trip.days.length === 0) {
@@ -4551,5 +4709,6 @@ const MapView = (() => {
              searchPlace, addCandidateToItinerary, focusCandidate, removeCandidate,
              selectSearchResult, closeSearchResults, toggleCandidateMarkers,
              setMapCandidateCatFilter, voteMapCandidate, moveToCandidate,
-             insertCandidateAt, cancelInsert };
+             insertCandidateAt, cancelInsert,
+             showPlaceSearchModal, selectSearchAddResult };
 })();
