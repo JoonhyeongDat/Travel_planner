@@ -3576,6 +3576,8 @@ const MapView = (() => {
     let placesService = null;
     let currentPlaceData = null;
     let _addSearchResults = [];   // 장소 검색 모달의 결과 목록
+    let _routeShown = false;      // 경로가 그려져 있는지
+    let _routeToken = 0;          // 이전 경로 요청의 늦은 응답을 무시하기 위한 토큰
 
     function initAutocomplete() {
         const input = document.getElementById('map-search-input');
@@ -4608,6 +4610,16 @@ const MapView = (() => {
         }
     }
 
+    // 그려둔 경로를 모두 지운다. 진행 중인 요청 결과도 토큰으로 무효화.
+    function clearRoutes() {
+        _routeToken++;
+        if (directionsRenderer) directionsRenderer.setMap(null);
+        if (!window._routeRenderers) window._routeRenderers = [];
+        window._routeRenderers.forEach(r => r.setMap(null));
+        window._routeRenderers = [];
+        _routeShown = false;
+    }
+
     function showRoute() {
         const validMarkers = markers.filter(m => m !== null);
         if (!map || validMarkers.length < 2) {
@@ -4624,11 +4636,11 @@ const MapView = (() => {
             return;
         }
 
-        // 기존 렌더러 정리
-        if (directionsRenderer) directionsRenderer.setMap(null);
-        if (!window._routeRenderers) window._routeRenderers = [];
-        window._routeRenderers.forEach(r => r.setMap(null));
-        window._routeRenderers = [];
+        // 기존 렌더러 정리 (진행 중이던 요청도 무효화)
+        clearRoutes();
+        const token = ++_routeToken;
+        // 응답 전에 필터가 바뀌어도 새 필터로 다시 그릴 수 있도록 요청 시점에 표시
+        _routeShown = true;
 
         const directionsService = new google.maps.DirectionsService();
         const polyColor = getComputedStyle(document.body).getPropertyValue('--primary').trim() || '#4F46E5';
@@ -4648,6 +4660,8 @@ const MapView = (() => {
                 destination,
                 travelMode: google.maps.TravelMode.DRIVING
             }, (result, status) => {
+                // 필터가 바뀌었거나 다시 그렸으면 이전 요청 결과는 버린다
+                if (token !== _routeToken) return;
                 completed++;
 
                 if (status === 'OK' && result.routes[0]) {
@@ -4701,8 +4715,17 @@ const MapView = (() => {
     }
 
     function setFilter(filterVal) {
+        const hadRoute = _routeShown;
+        clearRoutes();          // 이전 필터의 경로가 남지 않도록
         currentFilter = filterVal;
         render();
+
+        // 경로를 보고 있던 중이면 새 필터 기준으로 다시 그려준다
+        if (hadRoute) {
+            const trip = Store.getCurrentTrip();
+            const places = trip ? getAllPlaces(trip, currentFilter).filter(p => p.lat && p.lng) : [];
+            if (places.length >= 2) showRoute();
+        }
     }
 
     return { render, initGoogleMap, focusMarker, showRoute, setFilter, switchTab,
@@ -4710,5 +4733,5 @@ const MapView = (() => {
              selectSearchResult, closeSearchResults, toggleCandidateMarkers,
              setMapCandidateCatFilter, voteMapCandidate, moveToCandidate,
              insertCandidateAt, cancelInsert,
-             showPlaceSearchModal, selectSearchAddResult };
+             showPlaceSearchModal, selectSearchAddResult, clearRoutes };
 })();
