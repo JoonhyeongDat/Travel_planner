@@ -980,11 +980,60 @@ const App = (() => {
         updateDashboard();
     }
 
+    // ---- 일회성 정리: 2026-09-07 자동 시드로 생긴 중복 제거 ----
+    // seed-japan.js가 만든 샘플 일차/예약이 서버의 실제 여행과 병합되며 붙은 것을
+    // id 기준으로만 제거한다. 콘솔에서 App.cleanSeed() 로 실행.
+    const SEED_LEFTOVER = {
+        tripId: 'mtrblj4rzs9kzlbnx',
+        tripName: '도쿄 + 알펜루트 5일',
+        dayIds: ['mtrblj4rn573vkwdw', 'mtrblj4rpxjjnpw3k', 'mtrblj4sq8uu3jlb5', 'mtrblj4s02nk5dv4w', 'mtrblj4sfur4tdtvj'],
+        reservationIds: ['mtrblj4tizgzc8ihm', 'mtrblj4t713188pza', 'mtrblj4t28m2z25zj', 'mtrblj4t9zwyif1a4', 'mtrblj4txyzmp5dly', 'mtrblj4thcnlgn4bc', 'mtrblj4tdsb9ktuuv', 'mtrblj4tpgomt5v0o', 'mtrblj4tuyy05fj4y', 'mtrblj4t2iyox5zo6'],
+        memberIds: ['mtrblj4rwz0zagkqy'],
+        restore: { startDate: '2026-05-22', endDate: '2026-05-26', totalBudget: 7000000 }
+    };
+
+    function cleanSeed() {
+        const trips = Store.getTrips();
+        const trip = trips.find(t => t.id === SEED_LEFTOVER.tripId) ||
+                     trips.find(t => t.name === SEED_LEFTOVER.tripName);
+        if (!trip) {
+            console.log('[정리] 대상 여행을 찾지 못했습니다. 정리할 게 없습니다.');
+            return null;
+        }
+
+        const before = {
+            days: (trip.days || []).length,
+            items: (trip.days || []).reduce((n, d) => n + (d.items || []).length, 0),
+            reservations: (trip.reservations || []).length
+        };
+
+        trip.days = (trip.days || []).filter(d => !SEED_LEFTOVER.dayIds.includes(d.id));
+        trip.reservations = (trip.reservations || []).filter(r => !SEED_LEFTOVER.reservationIds.includes(r.id));
+        trip.members = (trip.members || []).filter(m => !SEED_LEFTOVER.memberIds.includes(m.id));
+        Object.assign(trip, SEED_LEFTOVER.restore);
+
+        const after = {
+            days: trip.days.length,
+            items: trip.days.reduce((n, d) => n + (d.items || []).length, 0),
+            reservations: trip.reservations.length
+        };
+
+        Store.save(); // localStorage + Firebase 반영
+        loadTripList();
+        updateDashboard();
+        renderCurrentPage();
+        console.log('[정리] "' + trip.name + '" 일차 ' + before.days + '→' + after.days +
+                    ', 일정 ' + before.items + '→' + after.items +
+                    ', 예약 ' + before.reservations + '→' + after.reservations);
+        return { before, after };
+    }
+
     return {
         navigateTo,
         updateDashboard,
         setTheme,
         showNewTripModal,
-        toggleDashChecklist
+        toggleDashChecklist,
+        cleanSeed
     };
 })();
