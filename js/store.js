@@ -193,6 +193,16 @@ const Store = (() => {
         }
     }
 
+    // 값이 채워진 로컬 설정만 추림 (null이 원격 값을 덮어쓰지 않도록)
+    function localSettings() {
+        const src = (_data && _data.settings) || {};
+        const out = {};
+        Object.keys(src).forEach(k => {
+            if (src[k] !== null && src[k] !== undefined && src[k] !== '') out[k] = src[k];
+        });
+        return out;
+    }
+
     // 현재 데이터
     let _data = load();
 
@@ -774,14 +784,14 @@ const Store = (() => {
         // Firebase에서 원격 데이터 적용 (다른 사용자 변경)
         // settings는 기기별 개인 설정(내가 누구인지, 테마 등)이므로 로컬 값 유지
         applyRemoteData: (remoteData) => {
-            const mySettings = _data.settings || {};
+            const mySettings = localSettings();
             _data = { ...defaultData, ...remoteData };
             _data.settings = { ...defaultData.settings, ...(remoteData.settings || {}), ...mySettings };
             localStorage.setItem(STORAGE_KEY, JSON.stringify(_data));
         },
         // Firebase 초기 데이터 로드 (병합 결과 적용)
         loadRemoteData: (remoteData) => {
-            const mySettings = _data.settings || {};
+            const mySettings = localSettings();
             _data = { ...defaultData, ...remoteData };
             _data.settings = { ...defaultData.settings, ...(remoteData.settings || {}), ...mySettings };
             localStorage.setItem(STORAGE_KEY, JSON.stringify(_data));
