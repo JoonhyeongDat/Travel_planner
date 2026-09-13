@@ -564,8 +564,11 @@ const Itinerary = (() => {
 
         const currentVal = field === 'start' ? (item.startTime || '') : (item.endTime || '');
         const input = document.createElement('input');
-        input.type = 'time';
-        input.className = 'item-time-input';
+        input.type = 'text';
+        input.inputMode = 'numeric';
+        input.maxLength = 5;
+        input.placeholder = '--:--';
+        input.className = 'item-time-input time-input';
         input.value = currentVal;
 
         const originalText = span.textContent;
@@ -704,11 +707,11 @@ const Itinerary = (() => {
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label">시작 시간</label>
-                    <input type="time" id="item-start-time" value="${item.startTime || ''}" />
+                    <input type="text" class="time-input" inputmode="numeric" maxlength="5" placeholder="--:--" id="item-start-time" value="${item.startTime || ''}" />
                 </div>
                 <div class="form-group">
                     <label class="form-label">종료 시간</label>
-                    <input type="time" id="item-end-time" value="${item.endTime || ''}" />
+                    <input type="text" class="time-input" inputmode="numeric" maxlength="5" placeholder="--:--" id="item-end-time" value="${item.endTime || ''}" />
                 </div>
             </div>
             <div class="form-group">
@@ -1462,7 +1465,7 @@ const Reservations = (() => {
                 </div>
                 <div class="form-group">
                     <label class="form-label">시간</label>
-                    <input type="time" id="res-time" />
+                    <input type="text" class="time-input" inputmode="numeric" maxlength="5" placeholder="--:--" id="res-time" />
                 </div>
             </div>
             <div class="form-row">
@@ -1472,7 +1475,7 @@ const Reservations = (() => {
                 </div>
                 <div class="form-group">
                     <label class="form-label">종료 시간</label>
-                    <input type="time" id="res-end-time" />
+                    <input type="text" class="time-input" inputmode="numeric" maxlength="5" placeholder="--:--" id="res-end-time" />
                 </div>
             </div>
             <div class="form-row">
@@ -1566,7 +1569,7 @@ const Reservations = (() => {
                 </div>
                 <div class="form-group">
                     <label class="form-label">시간</label>
-                    <input type="time" id="res-time" value="${res.time || ''}" />
+                    <input type="text" class="time-input" inputmode="numeric" maxlength="5" placeholder="--:--" id="res-time" value="${res.time || ''}" />
                 </div>
             </div>
             <div class="form-row">
@@ -1576,7 +1579,7 @@ const Reservations = (() => {
                 </div>
                 <div class="form-group">
                     <label class="form-label">종료 시간</label>
-                    <input type="time" id="res-end-time" value="${res.endTime || ''}" />
+                    <input type="text" class="time-input" inputmode="numeric" maxlength="5" placeholder="--:--" id="res-end-time" value="${res.endTime || ''}" />
                 </div>
             </div>
             <div class="form-row">

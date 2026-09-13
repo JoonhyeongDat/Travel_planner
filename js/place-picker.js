@@ -127,11 +127,11 @@ const PlacePicker = (() => {
             <div class="form-row">
                 <div class="form-group">
                     <label class="form-label">시작 시간</label>
-                    <input type="time" id="pp-start" />
+                    <input type="text" class="time-input" inputmode="numeric" maxlength="5" placeholder="--:--" id="pp-start" />
                 </div>
                 <div class="form-group">
                     <label class="form-label">종료 시간</label>
-                    <input type="time" id="pp-end" />
+                    <input type="text" class="time-input" inputmode="numeric" maxlength="5" placeholder="--:--" id="pp-end" />
                 </div>
             </div>`;
 

@@ -227,6 +227,9 @@ const App = (() => {
             });
         });
 
+        // 시간 입력(숫자 타이핑) 활성화
+        UI.initTimeInputs();
+
         // 일정 페이지 버튼
         document.getElementById('btn-add-day').addEventListener('click', () => Itinerary.addDay());
         document.getElementById('btn-edit-trip').addEventListener('click', () => showEditTripModal());

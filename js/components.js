@@ -81,6 +81,110 @@ const UI = (() => {
         }, 50);
     }
 
+    // ---- 시간 입력 ----
+    // <input type="time"> 은 ko 로케일에서 12시간제(오전/오후)로 그려져
+    // "2200" 을 쳐도 22시가 들어가지 않고, 입력 중간 상태(13:4)를 표시할 수도 없다.
+    // 그래서 텍스트 칸으로 두고 콜론을 자동으로 넣어 치는 그대로 보이게 한다.
+
+    // 자릿수를 시/분으로 가른다. 앞 두 자리가 23 이하일 때만 두 자리 시로 본다.
+    function splitTimeDigits(d) {
+        if (d.length >= 2 && Number(d.slice(0, 2)) <= 23) return [d.slice(0, 2), d.slice(2)];
+        return [d.slice(0, 1), d.slice(1)];
+    }
+
+    // 입력 중 화면에 보여줄 문자열 (1 → 13: → 13:4 → 13:45)
+    function formatTimeTyping(digits, deleting) {
+        const d = String(digits || '').replace(/\D/g, '').slice(0, 4);
+        if (!d) return '';
+        // 0~2 로 시작하면 두 자리 시(10~23)일 수 있어 한 글자 더 기다린다
+        if (d.length === 1) return Number(d) <= 2 ? d : d + ':';
+        const parts = splitTimeDigits(d);
+        const hh = parts[0], mm = parts[1];
+        if (mm.length === 0) return deleting ? hh : hh + ':';   // 지울 땐 콜론을 되붙이지 않는다
+        return hh + ':' + mm;
+    }
+
+    // 최종 확정값 (22 → 22:00, 134 → 13:40, 930 → 09:30)
+    function timeFromDigits(digits) {
+        const d = String(digits || '').replace(/\D/g, '').slice(0, 4);
+        if (!d) return null;
+        const parts = splitTimeDigits(d);
+        let hh = parts[0], mm = parts[1];
+        if (hh.length === 1) hh = '0' + hh;
+        if (mm.length === 0) mm = '00';
+        else if (mm.length === 1) mm = mm + '0';            // "93" → 09:30
+        if (Number(hh) > 23 || Number(mm) > 59) return null;
+        return hh + ':' + mm;
+    }
+
+    function enhanceTimeInput(input) {
+        if (!input || input.dataset.timeEnhanced === '1') return;
+        input.dataset.timeEnhanced = '1';
+
+        function fire() { input.dispatchEvent(new Event('change', { bubbles: true })); }
+
+        // 클릭하면 기존 값이 통째로 선택되어, 바로 숫자를 치면 덮어쓰게 한다
+        let justFocused = false;
+        function selectAll() {
+            try { input.select(); } catch (e) { /* noop */ }
+        }
+
+        function commit() {
+            const d = input.value.replace(/\D/g, '').slice(0, 4);
+            const val = d ? timeFromDigits(d) : null;
+            input.value = val || '';
+            fire();
+        }
+
+        input.addEventListener('input', (e) => {
+            const deleting = !!(e.inputType && e.inputType.indexOf('delete') === 0);
+            input.value = formatTimeTyping(input.value, deleting);
+        });
+
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { commit(); return; }
+            if (e.key === 'Escape') return;
+        });
+
+        input.addEventListener('focus', () => {
+            justFocused = true;
+            selectAll();
+        });
+
+        // mousedown → focus → mouseup 순서라, mouseup 이 커서를 놓으며 선택을 푼다.
+        // 방금 포커스된 클릭에서만 막아 전체 선택을 유지한다.
+        input.addEventListener('mouseup', (e) => {
+            if (!justFocused) return;
+            justFocused = false;
+            e.preventDefault();
+        });
+
+        input.addEventListener('blur', () => {
+            justFocused = false;
+            commit();
+        });
+
+        // 위임으로 붙는 시점엔 이미 focus 이벤트가 지나간 뒤일 수 있다
+        // (인라인 편집기는 input.focus() 를 먼저 호출한다)
+        if (document.activeElement === input) {
+            justFocused = true;
+            selectAll();
+        }
+    }
+
+    // 모달은 나중에 그려지므로 위임으로 현재·미래의 모든 시간 칸을 처리한다
+    let _timeInputsInited = false;
+    function initTimeInputs() {
+        if (_timeInputsInited) return;
+        _timeInputsInited = true;
+        document.addEventListener('focusin', (e) => {
+            const el = e.target;
+            if (el && el.tagName === 'INPUT' && el.classList && el.classList.contains('time-input')) {
+                enhanceTimeInput(el);
+            }
+        });
+    }
+
     // ---- HTML 이스케이프 ----
     function escapeHtml(str) {
         if (!str) return '';
@@ -426,6 +530,10 @@ const UI = (() => {
     return {
         showModal,
         closeModal,
+        enhanceTimeInput,
+        initTimeInputs,
+        timeFromDigits,
+        formatTimeTyping,
         showToast,
         showConfirm,
         escapeHtml,

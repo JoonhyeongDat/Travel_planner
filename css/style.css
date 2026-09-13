@@ -4068,3 +4068,14 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     margin-left: 2px;
     white-space: nowrap;
 }
+
+/* 시간 입력 (텍스트 + 자동 서식) */
+.time-input {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+}
+.time-input::placeholder {
+    color: var(--text-tertiary);
+    font-weight: 400;
+    letter-spacing: normal;
+}
