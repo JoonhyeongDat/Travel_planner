@@ -4043,3 +4043,28 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     max-height: 240px;
     background: var(--bg-primary);
 }
+
+/* 이동 커넥터 - 다시 계산 / 수동 입력 표시 */
+.travel-connector-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+}
+.travel-connector:hover .travel-connector-actions {
+    opacity: 1;
+}
+.travel-connector-actions .travel-edit-btn {
+    opacity: 1;
+}
+.travel-manual-badge {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-full);
+    padding: 1px 6px;
+    margin-left: 2px;
+    white-space: nowrap;
+}

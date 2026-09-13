@@ -47,7 +47,7 @@ const Itinerary = (() => {
                 itemsHTML += renderItem(item, day.id);
                 const next = day.items[idx + 1];
                 if (next) {
-                    itemsHTML += renderTravelConnector(item, next, day.id);
+                    itemsHTML += renderTravelConnector(item, next, day);
                 }
                 // 각 아이템 뒤에 + 버튼
                 itemsHTML += `<div class="item-insert-zone" onclick="Itinerary.showAddItemModal('${day.id}',${idx + 1})">
@@ -147,22 +147,37 @@ const Itinerary = (() => {
     }
 
     // ===== 이동 시간 커넥터 =====
-    function renderTravelConnector(fromItem, toItem, dayId) {
+    // travelInfo 는 "앞 일정"에 저장되지만, 어느 뒤 일정을 기준으로 잰 값인지(toId)도 함께 남긴다.
+    // 그래야 일정을 재배치·삽입·삭제해 이웃이 바뀌었을 때 옛 값이 남지 않는다.
+    function renderTravelConnector(fromItem, toItem, day) {
+        const dayId = day.id;
         const info = fromItem.travelInfo;
         const pairKey = `${fromItem.id}_${toItem.id}`;
         const hasCoords = fromItem.lat && fromItem.lng && toItem.lat && toItem.lng;
+        const isManual = !!(info && info.manual);
+        // 뒤 일정이 바뀐 구간 = 다른 구간을 잰 값이 남아 있는 것이므로 다시 계산한다.
+        // toId 가 없는 예전 데이터는 수동 입력일 수도 있어 자동으로 건드리지 않는다.
+        const isStale = !!(info && !isManual && info.toId && info.toId !== toItem.id);
 
-        if (!info && hasCoords) {
-            // 아직 데이터 없으면 로딩 표시 + 자동 계산 트리거
-            setTimeout(() => fetchTravelTimes(fromItem, toItem, dayId), 100);
+        const editBtn = `<button class="travel-edit-btn" onclick="Itinerary.editTravelTime('${dayId}','${fromItem.id}')" title="이동 시간 직접 입력">
+                    <span class="material-symbols-rounded">edit</span>
+                </button>`;
+        const recalcBtn = hasCoords
+            ? `<button class="travel-edit-btn" onclick="Itinerary.recalcTravelTime('${dayId}','${fromItem.id}')" title="경로 다시 계산">
+                    <span class="material-symbols-rounded">refresh</span>
+                </button>`
+            : '';
+        const actions = (alwaysOn) => `<div class="travel-connector-actions"${alwaysOn ? ' style="opacity:1"' : ''}>${recalcBtn}${editBtn}</div>`;
+
+        if ((!info || isStale) && hasCoords) {
+            // 여러 구간이 한꺼번에 요청되면 할당량 초과로 일부 이동수단만 살아남는다 → 순차 실행
+            queueTravelFetch(() => fetchTravelTimes(fromItem, toItem, day));
             return `<div class="travel-connector travel-connector-loading" data-pair="${pairKey}">
                 <div class="travel-connector-line"></div>
                 <div class="travel-modes">
                     <span class="travel-loading-text">이동 시간 계산 중...</span>
                 </div>
-                <button class="travel-edit-btn" style="opacity:1" onclick="Itinerary.editTravelTime('${dayId}','${fromItem.id}')" title="직접 입력">
-                    <span class="material-symbols-rounded">edit</span>
-                </button>
+                ${actions(true)}
             </div>`;
         }
 
@@ -172,9 +187,7 @@ const Itinerary = (() => {
                 <div class="travel-modes">
                     <span class="travel-no-data"><span class="material-symbols-rounded">more_vert</span></span>
                 </div>
-                <button class="travel-edit-btn" style="opacity:1" onclick="Itinerary.editTravelTime('${dayId}','${fromItem.id}')" title="이동 시간 직접 입력">
-                    <span class="material-symbols-rounded">edit</span>
-                </button>
+                ${actions(true)}
             </div>`;
         }
 
@@ -185,9 +198,7 @@ const Itinerary = (() => {
                 <div class="travel-modes">
                     <span class="travel-no-route-text">경로 탐색 결과 없음</span>
                 </div>
-                <button class="travel-edit-btn" style="opacity:1" onclick="Itinerary.editTravelTime('${dayId}','${fromItem.id}')" title="이동 시간 직접 입력">
-                    <span class="material-symbols-rounded">edit</span>
-                </button>
+                ${actions(true)}
             </div>`;
         }
 
@@ -203,7 +214,7 @@ const Itinerary = (() => {
             const data = info[m.key];
             if (!data) return '';
             const isSelected = selectedMode === m.key;
-            return `<button class="travel-mode-btn ${isSelected ? 'selected' : ''}" 
+            return `<button class="travel-mode-btn ${isSelected ? 'selected' : ''}"
                 data-mode="${m.key}" data-from="${fromItem.id}" data-day="${dayId}"
                 onclick="Itinerary.selectTravelMode('${dayId}','${fromItem.id}','${m.key}')"
                 title="${m.label}: ${data.duration} (${data.distance})">
@@ -212,25 +223,74 @@ const Itinerary = (() => {
             </button>`;
         }).join('');
 
+        const manualBadge = isManual
+            ? `<span class="travel-manual-badge" title="직접 입력한 값입니다. 자동으로 갱신되지 않습니다">수동</span>`
+            : '';
+
         return `<div class="travel-connector" data-pair="${pairKey}">
             <div class="travel-connector-line"></div>
-            <div class="travel-modes">${modesHTML}</div>
-            <button class="travel-edit-btn" onclick="Itinerary.editTravelTime('${dayId}','${fromItem.id}')" title="이동 시간 직접 수정">
-                <span class="material-symbols-rounded">edit</span>
-            </button>
+            <div class="travel-modes">${modesHTML}${manualBadge}</div>
+            ${actions(false)}
         </div>`;
+    }
+
+    // "1시간 20분" / "약 12분" / "1 hour 20 mins" / "15 min" / "12" → 초
+    function parseDurationText(text) {
+        if (!text) return 0;
+        const s = String(text).trim();
+        let minutes = 0, matched = false;
+
+        const h = s.match(/(\d+)\s*(?:시간|hours?|hrs?|h\b)/i);
+        if (h) { minutes += parseInt(h[1], 10) * 60; matched = true; }
+
+        const m = s.match(/(\d+)\s*(?:분|minutes?|mins?|m\b)/i);
+        if (m) { minutes += parseInt(m[1], 10); matched = true; }
+
+        if (!matched) {
+            const bare = s.match(/^(\d+)$/);   // 숫자만 적으면 분으로 본다
+            if (bare) { minutes = parseInt(bare[1], 10); matched = true; }
+        }
+        return matched ? minutes * 60 : 0;
+    }
+
+    // 대중교통은 "지금"이 아니라 실제로 이동하는 시점 기준으로 조회해야 한다.
+    // 그러지 않으면 조회 시점의 배차 대기시간이 그대로 더해진다.
+    function travelDepartureTime(day, fromItem) {
+        const now = new Date();
+        if (!day || !day.date) return now;
+        const time = fromItem.endTime || fromItem.startTime || '10:00';
+        const dt = new Date(`${day.date}T${time}:00`);
+        if (isNaN(dt.getTime())) return now;
+        // 과거 시각은 Directions API 가 받지 않으므로 현재 시각으로 대체
+        return dt.getTime() > now.getTime() ? dt : now;
+    }
+
+    // 구간별 조회를 300ms 간격으로 흘려보낸다 (동시 요청 폭주 → 할당량 초과 방지)
+    const _fetchQueue = [];
+    let _queueRunning = false;
+    function queueTravelFetch(job) {
+        _fetchQueue.push(job);
+        if (_queueRunning) return;
+        _queueRunning = true;
+        setTimeout(function next() {
+            const fn = _fetchQueue.shift();
+            if (!fn) { _queueRunning = false; return; }
+            try { fn(); } catch (e) { console.warn('[TravelTime] 조회 오류:', e); }
+            setTimeout(next, 300);
+        }, 100);
     }
 
     // Directions API로 이동 시간 조회
     const _fetchedPairs = new Set();
-    function fetchTravelTimes(fromItem, toItem, dayId) {
+    function fetchTravelTimes(fromItem, toItem, day) {
+        const dayId = day.id;
         const pairKey = `${fromItem.id}_${toItem.id}`;
         if (_fetchedPairs.has(pairKey)) return;
         _fetchedPairs.add(pairKey);
 
         if (typeof google === 'undefined' || !google.maps) {
             // Google Maps 미로드 시 noRoute 처리
-            saveTravelResults({}, dayId, fromItem.id);
+            saveTravelResults({}, dayId, fromItem.id, toItem.id);
             return;
         }
 
@@ -238,6 +298,7 @@ const Itinerary = (() => {
         const origin = { lat: fromItem.lat, lng: fromItem.lng };
         const dest = { lat: toItem.lat, lng: toItem.lng };
         const results = {};
+        const failed = [];
         let done = 0;
         const total = 3;
         let saved = false;
@@ -247,7 +308,11 @@ const Itinerary = (() => {
             done++;
             if (done === total) {
                 saved = true;
-                saveTravelResults(results, dayId, fromItem.id);
+                if (failed.length) {
+                    // 일부 수단만 살아남으면 그게 기본 선택이 되므로 원인을 남겨둔다
+                    console.warn('[TravelTime] 실패한 이동수단:', pairKey, failed.join(', '));
+                }
+                saveTravelResults(results, dayId, fromItem.id, toItem.id);
             }
         }
 
@@ -256,7 +321,7 @@ const Itinerary = (() => {
             if (!saved) {
                 saved = true;
                 console.warn('[TravelTime] 타임아웃 - 경로 탐색 실패:', pairKey);
-                saveTravelResults(results, dayId, fromItem.id);
+                saveTravelResults(results, dayId, fromItem.id, toItem.id);
             }
         }, 10000);
 
@@ -274,11 +339,14 @@ const Itinerary = (() => {
                             durationValue: leg.duration.value,
                             distance: leg.distance.text
                         };
+                    } else {
+                        failed.push(`${mode}:${status}`);
                     }
                     checkDone();
                 });
             } catch (e) {
                 console.warn('[TravelTime]', mode, '오류:', e);
+                failed.push(`${mode}:EXCEPTION`);
                 checkDone();
             }
         });
@@ -288,7 +356,7 @@ const Itinerary = (() => {
             service.route({
                 origin, destination: dest,
                 travelMode: google.maps.TravelMode.TRANSIT,
-                transitOptions: { departureTime: new Date() }
+                transitOptions: { departureTime: travelDepartureTime(day, fromItem) }
             }, (res, status) => {
                 if (status === 'OK' && res && res.routes && res.routes[0]) {
                     const leg = res.routes[0].legs[0];
@@ -297,22 +365,25 @@ const Itinerary = (() => {
                         durationValue: leg.duration.value,
                         distance: leg.distance.text
                     };
+                } else {
+                    failed.push(`TRANSIT:${status}`);
                 }
                 checkDone();
             });
         } catch (e) {
             console.warn('[TravelTime] TRANSIT 오류:', e);
+            failed.push('TRANSIT:EXCEPTION');
             checkDone();
         }
     }
 
-    function saveTravelResults(results, dayId, itemId) {
+    function saveTravelResults(results, dayId, itemId, toId) {
         const trip = Store.getCurrentTrip();
         if (!trip) return;
         if (Object.keys(results).length === 0) {
             // 모든 경로 탐색 실패 → noRoute 마커 저장
             Store.updateItineraryItem(trip.id, dayId, itemId, {
-                travelInfo: { noRoute: true, selectedMode: '' }
+                travelInfo: { noRoute: true, selectedMode: '', toId: toId || null, manual: false }
             });
             render();
             return;
@@ -320,16 +391,36 @@ const Itinerary = (() => {
         // 가장 짧은 모드를 기본 선택
         let shortest = null, shortestVal = Infinity;
         for (const [k, v] of Object.entries(results)) {
-            if (v.durationValue && v.durationValue < shortestVal) {
+            if (v && v.durationValue && v.durationValue < shortestVal) {
                 shortestVal = v.durationValue;
                 shortest = k;
             }
         }
-        results.selectedMode = shortest;
-        Store.updateItineraryItem(trip.id, dayId, itemId, { travelInfo: results });
+        const info = { ...results, selectedMode: shortest, toId: toId || null, manual: false };
+        Store.updateItineraryItem(trip.id, dayId, itemId, { travelInfo: info });
         // 다음 일정 시작시간 자동 계산
         autoCalcNextStartTime(dayId, itemId);
         render();
+    }
+
+    // 사용자가 직접 누른 경우엔 수동 입력값도 새로 계산한다
+    function recalcTravelTime(dayId, itemId) {
+        const trip = Store.getCurrentTrip();
+        if (!trip) return;
+        const day = trip.days.find(d => d.id === dayId);
+        if (!day) return;
+        const idx = day.items.findIndex(i => i.id === itemId);
+        if (idx === -1 || idx >= day.items.length - 1) return;
+
+        const fromItem = day.items[idx];
+        const toItem = day.items[idx + 1];
+        if (!(fromItem.lat && fromItem.lng && toItem.lat && toItem.lng)) {
+            UI.showToast('좌표가 없어 경로를 계산할 수 없습니다', 'warning');
+            return;
+        }
+        _fetchedPairs.delete(`${fromItem.id}_${toItem.id}`);
+        Store.updateItineraryItem(trip.id, dayId, itemId, { travelInfo: null });
+        render();   // travelInfo 가 비면 커넥터가 다시 조회를 건다
     }
 
     // 이동 수단 선택
@@ -391,14 +482,22 @@ const Itinerary = (() => {
 
         setTimeout(() => {
             document.getElementById('btn-save-travel').onclick = () => {
-                const newInfo = { selectedMode: document.getElementById('edit-travel-selected').value };
+                const prev = item.travelInfo || {};
+                const newInfo = {
+                    selectedMode: document.getElementById('edit-travel-selected').value,
+                    // 직접 입력한 값은 뒤 일정이 바뀌어도 자동으로 덮어쓰지 않는다
+                    manual: true,
+                    toId: prev.toId || null
+                };
                 modes.forEach(m => {
                     const dur = document.getElementById(`edit-travel-${m.key}-dur`).value.trim();
                     const dist = document.getElementById(`edit-travel-${m.key}-dist`).value.trim();
                     if (dur) {
                         newInfo[m.key] = {
                             duration: dur,
-                            durationValue: info[m.key]?.durationValue || 0,
+                            // 입력한 문자열에서 초를 다시 구한다.
+                            // (예전엔 옛 API 값을 그대로 남겨 화면과 시작시간 계산이 어긋났다)
+                            durationValue: parseDurationText(dur),
                             distance: dist || ''
                         };
                     }
@@ -434,20 +533,8 @@ const Itinerary = (() => {
             const mode = info.selectedMode;
             const modeData = mode && info[mode];
             if (modeData) {
-                if (modeData.durationValue) {
-                    travelMinutes = Math.ceil(modeData.durationValue / 60);
-                } else if (modeData.duration) {
-                    // "시간 분" 형식 파싱
-                    const hMatch = modeData.duration.match(/(\d+)\s*시간/);
-                    const mMatch = modeData.duration.match(/(\d+)\s*분/);
-                    travelMinutes = (hMatch ? parseInt(hMatch[1]) * 60 : 0) + (mMatch ? parseInt(mMatch[1]) : 0);
-                    if (travelMinutes === 0) {
-                        // "15 min" / "1 hour 20 mins" 영어 형식
-                        const hE = modeData.duration.match(/(\d+)\s*hour/);
-                        const mE = modeData.duration.match(/(\d+)\s*min/);
-                        travelMinutes = (hE ? parseInt(hE[1]) * 60 : 0) + (mE ? parseInt(mE[1]) : 0);
-                    }
-                }
+                const seconds = modeData.durationValue || parseDurationText(modeData.duration);
+                travelMinutes = Math.ceil(seconds / 60);
             }
         }
 
@@ -1249,7 +1336,7 @@ const Itinerary = (() => {
         render, addDay, removeDay, insertDayBefore,
         showAddItemModal, showEditItemModal,
         removeItem, toggleFavorite, addComment, editTimeInline, editDayTitle,
-        selectTravelMode, editTravelTime, moveItemToCandidate,
+        selectTravelMode, editTravelTime, recalcTravelTime, moveItemToCandidate,
         addCandidateToDay, removeCandidateFromList,
         showAddCandidateModal, initCandidatesPanel,
         setCandidateTab, setCandidateCatFilter, voteCandidate, voteCourse,
