@@ -541,305 +541,17 @@ const Itinerary = (() => {
         UI.showToast(`Day ${idx + 1}이 삽입되었습니다`, 'success');
     }
 
+    // 일차 카드 → "장소 추가" (지도/후보와 동일한 공용 팝업)
     function showAddItemModal(dayId, insertIndex) {
-        const trip = Store.getCurrentTrip();
-        if (!trip) return;
-        if (typeof Presence !== 'undefined') Presence.setFocus('day', dayId, '일정 추가 중');
-
-        const catOptions = Object.entries(UI.categoryInfo).map(([key, val]) =>
-            `<option value="${key}">${val.icon} ${val.label}</option>`
-        ).join('');
-
-        UI.showModal('일정 추가', `
-            <div class="form-group" style="background:var(--primary-bg);padding:16px;border-radius:var(--radius-md);border:1.5px dashed var(--primary-light)">
-                <label class="form-label" style="color:var(--primary);display:flex;align-items:center;gap:6px">
-                    <span class="material-symbols-rounded" style="font-size:1.1rem">search</span>
-                    Google Maps에서 장소 검색
-                </label>
-                <div style="display:flex;gap:8px">
-                    <input type="text" id="item-place-search" placeholder="장소명 검색 (예: 도쿄타워, 을지로 맛집...)" style="flex:1" />
-                    <button class="btn-primary btn-sm" id="btn-place-search" type="button" style="white-space:nowrap">
-                        <span class="material-symbols-rounded" style="font-size:1rem">search</span> 검색
-                    </button>
-                </div>
-                <div id="item-search-results" class="item-search-results" style="display:none;margin-top:8px;max-height:200px;overflow-y:auto;border:1px solid var(--border-light);border-radius:var(--radius-sm)"></div>
-            </div>
-            <div style="display:flex;align-items:center;gap:12px;margin:12px 0;color:var(--text-tertiary);font-size:0.8rem">
-                <div style="flex:1;height:1px;background:var(--border)"></div>
-                <span>또는 Google Maps 링크</span>
-                <div style="flex:1;height:1px;background:var(--border)"></div>
-            </div>
-            <div class="form-group">
-                <div style="display:flex;gap:8px">
-                    <input type="text" id="item-gmaps-link" placeholder="Google Maps 링크를 붙여넣으세요" style="flex:1" />
-                    <button class="btn-outline btn-sm" id="btn-parse-gmaps" type="button" style="white-space:nowrap">
-                        <span class="material-symbols-rounded" style="font-size:1rem">link</span> 자동 입력
-                    </button>
-                </div>
-                <div id="gmaps-parse-status" style="display:none;margin-top:8px;font-size:0.82rem;padding:8px 12px;border-radius:var(--radius-sm)"></div>
-            </div>
-            <div style="display:flex;align-items:center;gap:12px;margin:12px 0;color:var(--text-tertiary);font-size:0.8rem">
-                <div style="flex:1;height:1px;background:var(--border)"></div>
-                <span>직접 입력</span>
-                <div style="flex:1;height:1px;background:var(--border)"></div>
-            </div>
-            <div class="form-group">
-                <label class="form-label">장소 / 일정명 *</label>
-                <input type="text" id="item-title" placeholder="예: 에펠탑, 이치란 라멘" />
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">카테고리</label>
-                    <select id="item-category">${catOptions}</select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">예상 비용</label>
-                    <input type="number" id="item-cost" placeholder="0" />
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">시작 시간</label>
-                    <input type="time" id="item-start-time" />
-                </div>
-                <div class="form-group">
-                    <label class="form-label">종료 시간</label>
-                    <input type="time" id="item-end-time" />
-                </div>
-            </div>
-            <div class="form-group">
-                <label class="form-label">주소 / 위치</label>
-                <input type="text" id="item-address" placeholder="주소 또는 위치 정보" />
-            </div>
-            <div class="form-group">
-                <label class="form-label">메모</label>
-                <textarea id="item-notes" placeholder="참고 사항, 팁 등을 적어주세요"></textarea>
-            </div>
-            <div class="form-group">
-                <label class="form-label">이미지 URL (선택)</label>
-                <input type="text" id="item-image" placeholder="이미지 URL (비우면 자동 검색)" />
-                <p class="form-hint">비워두시면 장소명으로 이미지를 자동 검색합니다</p>
-            </div>
-        `, `
-            <button class="btn-outline" onclick="UI.closeModal()">취소</button>
-            <button class="btn-primary" id="btn-save-item">저장</button>
-        `);
-
-        setTimeout(() => {
-            // ===== 장소 검색 기능 =====
-            let _searchPlaceData = null; // 검색으로 선택된 장소 데이터
-            const searchInput = document.getElementById('item-place-search');
-            const searchBtn = document.getElementById('btn-place-search');
-            const searchResults = document.getElementById('item-search-results');
-
-            function doPlaceSearch() {
-                const q = searchInput.value.trim();
-                if (!q) return;
-                if (typeof google === 'undefined' || !google.maps) {
-                    UI.showToast('Google Maps API를 로드할 수 없습니다', 'warning');
-                    return;
-                }
-                // PlacesService 를 위한 임시 div
-                let svcDiv = document.getElementById('_item-places-svc');
-                if (!svcDiv) { svcDiv = document.createElement('div'); svcDiv.id = '_item-places-svc'; document.body.appendChild(svcDiv); }
-                const svc = new google.maps.places.PlacesService(svcDiv);
-                searchResults.style.display = 'block';
-                searchResults.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-tertiary);font-size:0.8rem">검색 중...</div>';
-                svc.textSearch({ query: q }, (results, status) => {
-                    if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
-                        const max = Math.min(results.length, 8);
-                        searchResults.innerHTML = '';
-                        for (let i = 0; i < max; i++) {
-                            const p = results[i];
-                            const addr = p.formatted_address || p.vicinity || '';
-                            const rating = p.rating ? `⭐${p.rating}` : '';
-                            const div = document.createElement('div');
-                            div.className = 'item-search-result';
-                            div.innerHTML = `<div class="item-search-result-name">${UI.escapeHtml(p.name)}</div>
-                                <div class="item-search-result-meta">${rating} ${UI.escapeHtml(addr)}</div>`;
-                            div.addEventListener('click', () => selectSearchedPlace(p));
-                            searchResults.appendChild(div);
-                        }
-                    } else {
-                        searchResults.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-tertiary);font-size:0.8rem">검색 결과가 없습니다</div>';
-                    }
-                });
-            }
-
-            function selectSearchedPlace(place) {
-                const lat = place.geometry.location.lat();
-                const lng = place.geometry.location.lng();
-                document.getElementById('item-title').value = place.name || '';
-                document.getElementById('item-address').value = place.formatted_address || place.vicinity || '';
-                // 카테고리 자동 감지
-                const types = place.types || [];
-                if (types.some(t => /restaurant|food|cafe|bakery|meal/.test(t))) {
-                    document.getElementById('item-category').value = 'food';
-                } else if (types.some(t => /lodging|hotel/.test(t))) {
-                    document.getElementById('item-category').value = 'accommodation';
-                } else if (types.some(t => /store|shop|mall/.test(t))) {
-                    document.getElementById('item-category').value = 'shopping';
-                } else if (types.some(t => /museum|art_gallery|amusement|zoo|aquarium/.test(t))) {
-                    document.getElementById('item-category').value = 'activity';
-                }
-                // 이미지
-                if (place.photos && place.photos[0]) {
-                    document.getElementById('item-image').value = place.photos[0].getUrl({ maxWidth: 400 });
-                }
-                _searchPlaceData = { lat, lng, placeId: place.place_id };
-                searchResults.style.display = 'none';
-                searchInput.value = place.name;
-                UI.showToast(`"${place.name}" 선택됨`, 'success');
-            }
-
-            searchBtn.addEventListener('click', doPlaceSearch);
-            searchInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') { e.preventDefault(); doPlaceSearch(); }
-            });
-
-            // ===== Google Maps 링크 자동 파싱 =====
-            const gmapsInput = document.getElementById('item-gmaps-link');
-            const parseBtn = document.getElementById('btn-parse-gmaps');
-            const statusEl = document.getElementById('gmaps-parse-status');
-
-            function showParseStatus(message, type) {
-                statusEl.style.display = 'block';
-                statusEl.style.background = type === 'success' ? 'rgba(16,185,129,0.1)' : type === 'error' ? 'rgba(239,68,68,0.1)' : 'rgba(59,130,246,0.1)';
-                statusEl.style.color = type === 'success' ? 'var(--success)' : type === 'error' ? 'var(--danger)' : 'var(--info)';
-                statusEl.innerHTML = message;
-            }
-
-            async function handleGmapsParse() {
-                const url = gmapsInput.value.trim();
-                if (!url) {
-                    UI.showToast('Google Maps 링크를 입력해주세요', 'warning');
-                    return;
-                }
-
-                const parsed = UI.parseGoogleMapsUrl(url);
-                if (!parsed) {
-                    showParseStatus('⚠️ 유효한 Google Maps 링크가 아닙니다. 구글맵에서 복사한 링크를 붙여넣어주세요.', 'error');
-                    return;
-                }
-
-                showParseStatus('⏳ 장소 정보를 가져오는 중...', 'info');
-                parseBtn.disabled = true;
-                parseBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:1rem;animation:spin 1s linear infinite">progress_activity</span> 분석 중';
-
-                // URL에서 추출한 정보 채우기
-                if (parsed.title) {
-                    document.getElementById('item-title').value = parsed.title;
-                }
-
-                if (parsed.address) {
-                    document.getElementById('item-address').value = parsed.address;
-                }
-
-                // 좌표가 있으면 역지오코딩으로 추가 정보 가져오기
-                if (parsed.lat && parsed.lng) {
-                    const geo = await UI.reverseGeocode(parsed.lat, parsed.lng);
-                    if (geo) {
-                        if (!parsed.title && geo.name) {
-                            document.getElementById('item-title').value = geo.name;
-                        }
-                        if (geo.address) {
-                            document.getElementById('item-address').value = geo.address;
-                        }
-                        // 장소 타입에 따라 카테고리 자동 추정
-                        const titleVal = document.getElementById('item-title').value.toLowerCase();
-                        const addrVal = (geo.address || '').toLowerCase();
-                        if (/restaurant|식당|레스토랑|라멘|ramen|cafe|카페|coffee|bakery|베이커리/i.test(titleVal + ' ' + addrVal)) {
-                            document.getElementById('item-category').value = 'food';
-                        } else if (/hotel|호텔|hostel|inn|숙소|게스트하우스|리조트|resort|airbnb/i.test(titleVal)) {
-                            document.getElementById('item-category').value = 'accommodation';
-                        } else if (/museum|박물관|미술관|gallery|극장|theater|theatre/i.test(titleVal)) {
-                            document.getElementById('item-category').value = 'entertainment';
-                        } else if (/mall|마트|market|시장|쇼핑|shop|store|백화점/i.test(titleVal)) {
-                            document.getElementById('item-category').value = 'shopping';
-                        }
-                    }
-
-                    // 좌표 기반 이미지 자동 설정
-                    const titleForImg = document.getElementById('item-title').value;
-                    if (titleForImg && !document.getElementById('item-image').value) {
-                        document.getElementById('item-image').value = UI.getPlaceImage(titleForImg);
-                    }
-
-                    showParseStatus(
-                        `✅ 장소 정보를 가져왔습니다!<br><strong>${UI.escapeHtml(document.getElementById('item-title').value)}</strong>` +
-                        `<br><span style="font-size:0.75rem;opacity:0.7">📍 ${parsed.lat.toFixed(5)}, ${parsed.lng.toFixed(5)}</span>`,
-                        'success'
-                    );
-                } else if (parsed.title) {
-                    // 좌표 없이 장소명만 있는 경우
-                    if (!document.getElementById('item-image').value) {
-                        document.getElementById('item-image').value = UI.getPlaceImage(parsed.title);
-                    }
-                    showParseStatus(
-                        `✅ 장소명을 가져왔습니다: <strong>${UI.escapeHtml(parsed.title)}</strong>` +
-                        `<br><span style="font-size:0.75rem;opacity:0.7">주소와 추가 정보를 직접 입력해주세요</span>`,
-                        'success'
-                    );
-                } else {
-                    showParseStatus('⚠️ 링크에서 장소 정보를 추출하지 못했습니다. 직접 입력해주세요.', 'error');
-                }
-
-                parseBtn.disabled = false;
-                parseBtn.innerHTML = '<span class="material-symbols-rounded" style="font-size:1rem">auto_fix_high</span> 자동 입력';
-            }
-
-            parseBtn.onclick = handleGmapsParse;
-            gmapsInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') { e.preventDefault(); handleGmapsParse(); }
-            });
-            // 붙여넣기 시 자동 파싱
-            gmapsInput.addEventListener('paste', () => {
-                setTimeout(handleGmapsParse, 100);
-            });
-
-            document.getElementById('btn-save-item').onclick = () => {
-                const title = document.getElementById('item-title').value.trim();
-                if (!title) {
-                    UI.showToast('장소명을 입력해주세요', 'warning');
-                    return;
-                }
-                const imageUrl = document.getElementById('item-image').value.trim() || UI.getPlaceImage(title, document.getElementById('item-category').value);
-
-                const gmapsParsed = UI.parseGoogleMapsUrl(gmapsInput.value.trim());
-
-                const newItem = Store.addItineraryItem(trip.id, dayId, {
-                    title,
-                    category: document.getElementById('item-category').value,
-                    startTime: document.getElementById('item-start-time').value,
-                    endTime: document.getElementById('item-end-time').value,
-                    address: document.getElementById('item-address').value.trim(),
-                    notes: document.getElementById('item-notes').value.trim(),
-                    cost: Number(document.getElementById('item-cost').value) || 0,
-                    imageUrl,
-                    lat: _searchPlaceData?.lat || gmapsParsed?.lat || null,
-                    lng: _searchPlaceData?.lng || gmapsParsed?.lng || null,
-                    placeId: _searchPlaceData?.placeId || null
-                });
-
-                // insertIndex가 지정되면 해당 위치로 이동
-                if (typeof insertIndex === 'number' && newItem) {
-                    const day = trip.days.find(d => d.id === dayId);
-                    if (day && day.items.length > 1) {
-                        // 방금 추가된 아이템은 맨 뒤에 있으므로 원하는 위치로 이동
-                        const removed = day.items.pop();
-                        day.items.splice(insertIndex, 0, removed);
-                        Store.save();
-                    }
-                }
-
-                UI.closeModal();
+        PlacePicker.open({
+            mode: 'itinerary',
+            dayId: dayId,
+            insertIndex: insertIndex,
+            onSaved: () => {
                 render();
-                App.updateDashboard();
-                Store.addActivity(trip.id, '일정 추가', `"${title}" 추가`);
-                UI.showToast(`"${title}" 이(가) 추가되었습니다`, 'success');
-            };
-            document.getElementById('item-place-search').focus();
-        }, 50);
+                if (typeof App !== 'undefined' && App.updateDashboard) App.updateDashboard();
+            }
+        });
     }
 
     function showEditItemModal(dayId, itemId) {
@@ -994,9 +706,18 @@ const Itinerary = (() => {
                 UI.showToast(`"${place.name}" 선택됨`, 'success');
             }
 
+            // 추천 검색어 (지도 상단 검색창과 동일하게)
+            if (typeof PlacePicker !== 'undefined') {
+                PlacePicker.attachAutocomplete(searchInput, selectSearchedPlace);
+            }
+
             searchBtn.addEventListener('click', doPlaceSearch);
             searchInput.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') { e.preventDefault(); doPlaceSearch(); }
+                if (e.key !== 'Enter') return;
+                e.preventDefault();
+                // 추천 목록에서 고르는 중이면 그쪽에 맡긴다
+                if (typeof PlacePicker !== 'undefined' && PlacePicker.suggestionActive(searchInput)) return;
+                doPlaceSearch();
             });
 
             // ===== Google Maps 링크 자동 파싱 =====
@@ -1485,168 +1206,9 @@ const Itinerary = (() => {
         }
     }
 
+    // 후보 리스트 → "일정 후보 추가" (지도/일정 공용 팝업)
     function showAddCandidateModal() {
-        if (typeof Presence !== 'undefined') Presence.setFocus('page', '', '후보 추가 중');
-        const trip = Store.getCurrentTrip();
-        if (!trip) { UI.showToast('먼저 여행을 생성해주세요', 'warning'); return; }
-
-        UI.showModal('일정 후보 추가', `
-            <div class="form-group" style="background:var(--primary-bg);padding:14px;border-radius:var(--radius-md);border:1.5px dashed var(--primary-light)">
-                <label class="form-label" style="color:var(--primary);display:flex;align-items:center;gap:6px">
-                    <span class="material-symbols-rounded" style="font-size:1.1rem">search</span>
-                    Google Maps에서 장소 검색
-                </label>
-                <div style="display:flex;gap:8px">
-                    <input type="text" id="cand-place-search" placeholder="장소명 검색..." style="flex:1" />
-                    <button class="btn-primary btn-sm" id="btn-cand-search" type="button" style="white-space:nowrap">
-                        <span class="material-symbols-rounded" style="font-size:1rem">search</span> 검색
-                    </button>
-                </div>
-                <div id="cand-search-results" style="display:none;margin-top:8px;max-height:200px;overflow-y:auto;border:1px solid var(--border-light);border-radius:var(--radius-sm)"></div>
-            </div>
-            <div style="display:flex;align-items:center;gap:12px;margin:10px 0;color:var(--text-tertiary);font-size:0.8rem">
-                <div style="flex:1;height:1px;background:var(--border)"></div>
-                <span>또는 Google Maps 링크</span>
-                <div style="flex:1;height:1px;background:var(--border)"></div>
-            </div>
-            <div class="form-group">
-                <div style="display:flex;gap:8px">
-                    <input type="text" id="cand-gmaps-link" placeholder="Google Maps 링크를 붙여넣으세요" style="flex:1" />
-                    <button class="btn-outline btn-sm" id="btn-cand-parse" type="button" style="white-space:nowrap">
-                        <span class="material-symbols-rounded" style="font-size:1rem">link</span> 자동 입력
-                    </button>
-                </div>
-                <div id="cand-parse-status" style="display:none;margin-top:8px;font-size:0.82rem;padding:8px 12px;border-radius:var(--radius-sm)"></div>
-            </div>
-            <div style="display:flex;align-items:center;gap:12px;margin:10px 0;color:var(--text-tertiary);font-size:0.8rem">
-                <div style="flex:1;height:1px;background:var(--border)"></div>
-                <span>직접 입력</span>
-                <div style="flex:1;height:1px;background:var(--border)"></div>
-            </div>
-            <div class="form-group">
-                <label class="form-label">장소명 *</label>
-                <input type="text" id="cand-title" placeholder="예: 도쿄타워, 을지로 맛집" />
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label class="form-label">카테고리</label>
-                    <select id="cand-category">${Object.entries(UI.categoryInfo).map(([k,v]) => `<option value="${k}">${v.icon} ${v.label}</option>`).join('')}</select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">주소</label>
-                    <input type="text" id="cand-address" placeholder="주소 또는 위치" />
-                </div>
-            </div>
-            <div class="form-group">
-                <label class="form-label">메모</label>
-                <input type="text" id="cand-notes" placeholder="참고 사항" />
-            </div>
-        `, `
-            <button class="btn-outline" onclick="UI.closeModal()">취소</button>
-            <button class="btn-primary" id="btn-save-cand">추가</button>
-        `);
-
-        setTimeout(() => {
-            let _candPlaceData = null;
-            const searchInput = document.getElementById('cand-place-search');
-            const searchBtn = document.getElementById('btn-cand-search');
-            const searchResults = document.getElementById('cand-search-results');
-
-            function doCandSearch() {
-                const q = searchInput.value.trim();
-                if (!q) return;
-                if (typeof google === 'undefined' || !google.maps) { UI.showToast('Google Maps API를 로드할 수 없습니다', 'warning'); return; }
-                let svcDiv = document.getElementById('_item-places-svc');
-                if (!svcDiv) { svcDiv = document.createElement('div'); svcDiv.id = '_item-places-svc'; document.body.appendChild(svcDiv); }
-                const svc = new google.maps.places.PlacesService(svcDiv);
-                searchResults.style.display = 'block';
-                searchResults.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-tertiary);font-size:0.8rem">검색 중...</div>';
-                svc.textSearch({ query: q }, (results, status) => {
-                    if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
-                        searchResults.innerHTML = '';
-                        for (let i = 0; i < Math.min(results.length, 8); i++) {
-                            const p = results[i];
-                            const div = document.createElement('div');
-                            div.className = 'item-search-result';
-                            div.innerHTML = `<div class="item-search-result-name">${UI.escapeHtml(p.name)}</div>
-                                <div class="item-search-result-meta">${p.rating ? `⭐${p.rating}` : ''} ${UI.escapeHtml(p.formatted_address || '')}</div>`;
-                            div.addEventListener('click', () => {
-                                document.getElementById('cand-title').value = p.name || '';
-                                document.getElementById('cand-address').value = p.formatted_address || p.vicinity || '';
-                                const types = p.types || [];
-                                if (types.some(t => /restaurant|food|cafe|bakery|meal/.test(t))) document.getElementById('cand-category').value = 'food';
-                                else if (types.some(t => /lodging|hotel/.test(t))) document.getElementById('cand-category').value = 'accommodation';
-                                else if (types.some(t => /store|shop|mall/.test(t))) document.getElementById('cand-category').value = 'shopping';
-                                else if (types.some(t => /museum|art_gallery|amusement|zoo|aquarium/.test(t))) document.getElementById('cand-category').value = 'activity';
-                                const lat = p.geometry.location.lat(), lng = p.geometry.location.lng();
-                                _candPlaceData = { lat, lng, placeId: p.place_id, rating: p.rating || null, imageUrl: (p.photos && p.photos[0]) ? p.photos[0].getUrl({ maxWidth: 400 }) : '' };
-                                searchResults.style.display = 'none';
-                                searchInput.value = p.name;
-                                UI.showToast(`"${p.name}" 선택됨`, 'success');
-                            });
-                            searchResults.appendChild(div);
-                        }
-                    } else {
-                        searchResults.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-tertiary);font-size:0.8rem">검색 결과가 없습니다</div>';
-                    }
-                });
-            }
-
-            searchBtn.addEventListener('click', doCandSearch);
-            searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); doCandSearch(); } });
-
-            // Google Maps link parsing
-            const gmapsInput = document.getElementById('cand-gmaps-link');
-            const parseBtn = document.getElementById('btn-cand-parse');
-            const statusEl = document.getElementById('cand-parse-status');
-
-            async function handleCandGmapsParse() {
-                const url = gmapsInput.value.trim();
-                if (!url) { UI.showToast('Google Maps 링크를 입력해주세요', 'warning'); return; }
-                const parsed = UI.parseGoogleMapsUrl(url);
-                if (!parsed) { statusEl.style.display = 'block'; statusEl.style.background = 'rgba(239,68,68,0.1)'; statusEl.style.color = 'var(--danger)'; statusEl.innerHTML = '⚠️ 유효한 Google Maps 링크가 아닙니다.'; return; }
-                if (parsed.title) document.getElementById('cand-title').value = parsed.title;
-                if (parsed.address) document.getElementById('cand-address').value = parsed.address;
-                if (parsed.lat && parsed.lng) {
-                    _candPlaceData = { lat: parsed.lat, lng: parsed.lng, placeId: parsed.placeId || null };
-                    const geo = await UI.reverseGeocode(parsed.lat, parsed.lng);
-                    if (geo) {
-                        if (!parsed.title && geo.name) document.getElementById('cand-title').value = geo.name;
-                        if (geo.address) document.getElementById('cand-address').value = geo.address;
-                    }
-                    statusEl.style.display = 'block'; statusEl.style.background = 'rgba(16,185,129,0.1)'; statusEl.style.color = 'var(--success)';
-                    statusEl.innerHTML = `✅ 장소 정보를 가져왔습니다!`;
-                } else if (parsed.title) {
-                    statusEl.style.display = 'block'; statusEl.style.background = 'rgba(16,185,129,0.1)'; statusEl.style.color = 'var(--success)';
-                    statusEl.innerHTML = `✅ "${UI.escapeHtml(parsed.title)}"`;
-                }
-            }
-            parseBtn.onclick = handleCandGmapsParse;
-            gmapsInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); handleCandGmapsParse(); } });
-            gmapsInput.addEventListener('paste', () => { setTimeout(handleCandGmapsParse, 100); });
-
-            // Save
-            document.getElementById('btn-save-cand').onclick = () => {
-                const title = document.getElementById('cand-title').value.trim();
-                if (!title) { UI.showToast('장소명을 입력해주세요', 'warning'); return; }
-                Store.addCandidate(trip.id, {
-                    title,
-                    category: document.getElementById('cand-category').value,
-                    address: document.getElementById('cand-address').value.trim(),
-                    notes: document.getElementById('cand-notes').value.trim(),
-                    lat: _candPlaceData?.lat || null,
-                    lng: _candPlaceData?.lng || null,
-                    placeId: _candPlaceData?.placeId || null,
-                    rating: _candPlaceData?.rating || null,
-                    imageUrl: _candPlaceData?.imageUrl || ''
-                });
-                UI.closeModal();
-                render();
-                Store.addActivity(trip.id, '후보 추가', `"${title}" 후보 추가`);
-                UI.showToast(`"${title}" 후보에 추가됨`, 'success');
-            };
-            searchInput.focus();
-        }, 50);
+        PlacePicker.open({ mode: 'candidate', onSaved: render });
     }
 
     function editDayTitle(e, dayId) {
@@ -3530,7 +3092,7 @@ const MapView = (() => {
 
         if (candidates.length === 0) {
             html += `<div class="empty-state-sm">
-                <p>${mapCandidateCatFilter === 'all' ? '지도에서 장소를 검색하고<br>"후보에 추가"를 눌러보세요' : '해당 카테고리의 후보가 없습니다.'}</p>
+                <p>${mapCandidateCatFilter === 'all' ? '위 버튼으로 장소를 검색해 추가하거나<br>지도에서 "후보에 추가"를 눌러보세요' : '해당 카테고리의 후보가 없습니다.'}</p>
             </div>`;
             list.innerHTML = html;
             return;
@@ -3575,7 +3137,6 @@ const MapView = (() => {
     // ===== Google Places Autocomplete =====
     let placesService = null;
     let currentPlaceData = null;
-    let _addSearchResults = [];   // 장소 검색 모달의 결과 목록
     let _routeShown = false;      // 경로가 그려져 있는지
     let _routeToken = 0;          // 이전 경로 요청의 늦은 응답을 무시하기 위한 토큰
 
@@ -3872,232 +3433,30 @@ const MapView = (() => {
         return placesService;
     }
 
+    function getMap() {
+        return map;
+    }
+
+    // 장소 목록 탭 → "장소 추가" (공용 팝업)
     function showPlaceSearchModal() {
-        const trip = Store.getCurrentTrip();
-        if (!trip) { UI.showToast('먼저 여행을 생성해주세요', 'warning'); return; }
-        if (!trip.days || trip.days.length === 0) { UI.showToast('먼저 일정(Day)을 추가해주세요', 'warning'); return; }
-        if (typeof google === 'undefined' || !google.maps) { UI.showToast('Google Maps API를 로드할 수 없습니다', 'warning'); return; }
+        PlacePicker.open({ mode: 'itinerary', onSaved: render });
+    }
 
-        if (typeof Presence !== 'undefined') Presence.setFocus('page', '', '장소 검색 중');
-        _addSearchResults = [];
-
-        UI.showModal('📍 장소 검색해서 추가', `
-            <div class="form-group">
-                <label class="form-label">장소 검색</label>
-                <div style="display:flex;gap:8px">
-                    <input type="text" id="place-add-search" placeholder="장소명 검색 (예: 도쿄타워, 이치란 라멘)" style="flex:1" />
-                    <button class="btn-primary btn-sm" id="btn-place-add-search" type="button" style="white-space:nowrap">
-                        <span class="material-symbols-rounded" style="font-size:1rem">search</span> 검색
-                    </button>
-                </div>
-            </div>
-            <div id="place-add-results" class="place-add-results">
-                <div class="place-add-empty">검색어를 입력하고 엔터를 누르세요</div>
-            </div>
-        `, `<button class="btn-outline" onclick="UI.closeModal()">닫기</button>`, {
-            onOpen: () => {
-                const btn = document.getElementById('btn-place-add-search');
-                if (btn) btn.onclick = runPlaceAddSearch;
-                const input = document.getElementById('place-add-search');
-                if (input) {
-                    input.addEventListener('keydown', (e) => {
-                        if (e.key === 'Enter') { e.preventDefault(); runPlaceAddSearch(); }
-                    });
-                    input.focus();
-                }
-            }
+    // 일정 후보 탭 → "일정 후보 추가" (같은 팝업, 제목만 다르다)
+    function showCandidateSearchModal() {
+        PlacePicker.open({
+            mode: 'candidate',
+            onSaved: () => { renderCandidatesList(); switchTab('candidates'); }
         });
     }
 
-    function runPlaceAddSearch() {
-        const input = document.getElementById('place-add-search');
-        const box = document.getElementById('place-add-results');
-        if (!input || !box) return;
-        const query = input.value.trim();
-        if (!query) return;
-
-        box.innerHTML = '<div class="place-add-empty">검색 중...</div>';
-
-        const svc = ensurePlacesService();
-        if (!svc) { geocodeForAdd(query); return; }
-
-        const req = { query: query };
-        if (map) { req.location = map.getCenter(); req.radius = 50000; }
-        svc.textSearch(req, (results, status) => {
-            if (status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0) {
-                renderPlaceAddResults(results);
-            } else {
-                geocodeForAdd(query);
-            }
-        });
-    }
-
-    // Places가 실패하면 주소 검색으로 대체
-    function geocodeForAdd(query) {
-        if (!geocoder) {
-            try { geocoder = new google.maps.Geocoder(); } catch (e) { geocoder = null; }
-        }
-        if (!geocoder) { renderPlaceAddResults([]); return; }
-        geocoder.geocode({ address: query }, (results, status) => {
-            if (status === 'OK' && results && results.length > 0) {
-                renderPlaceAddResults(results.map(r => ({
-                    name: query,
-                    formatted_address: r.formatted_address,
-                    geometry: r.geometry,
-                    place_id: r.place_id,
-                    types: r.types || [],
-                    rating: null,
-                    photos: null
-                })));
-            } else {
-                renderPlaceAddResults([]);
-            }
-        });
-    }
-
-    function renderPlaceAddResults(results) {
-        const box = document.getElementById('place-add-results');
-        if (!box) return;
-        _addSearchResults = results || [];
-
-        if (_addSearchResults.length === 0) {
-            box.innerHTML = '<div class="place-add-empty">검색 결과가 없습니다. 다른 이름으로 시도해보세요.</div>';
-            return;
-        }
-
-        box.innerHTML = _addSearchResults.slice(0, 15).map((p, i) => {
-            const catInfo = UI.categoryInfo[categoryFromTypes(p.types)] || UI.categoryInfo.place;
-            let photo = '';
-            if (p.photos && p.photos.length > 0) {
-                try { photo = p.photos[0].getUrl({ maxWidth: 80, maxHeight: 80 }); } catch (e) { }
-            }
-            const thumbStyle = photo
-                ? `background-image:url('${photo}');background-size:cover;background-position:center`
-                : `background:${catInfo.color}15;color:${catInfo.color}`;
-            return `
-                <div class="place-add-result" onclick="MapView.selectSearchAddResult(${i})">
-                    <div class="place-add-thumb" style="${thumbStyle}">${photo ? '' : catInfo.icon}</div>
-                    <div class="place-add-info">
-                        <div class="place-add-name">${UI.escapeHtml(p.name || '')}</div>
-                        <div class="place-add-addr">${UI.escapeHtml(p.formatted_address || '')}</div>
-                    </div>
-                    ${p.rating ? `<div class="place-add-rating">⭐ ${p.rating}</div>` : ''}
-                </div>`;
-        }).join('');
-    }
-
-    function selectSearchAddResult(index) {
-        const place = _addSearchResults[index];
-        if (!place || !place.geometry || !place.geometry.location) return;
-
-        const loc = place.geometry.location;
-        const lat = typeof loc.lat === 'function' ? loc.lat() : loc.lat;
-        const lng = typeof loc.lng === 'function' ? loc.lng() : loc.lng;
-
-        let photoUrl = '';
-        if (place.photos && place.photos.length > 0) {
-            try { photoUrl = place.photos[0].getUrl({ maxWidth: 400 }); } catch (e) { }
-        }
-
-        UI.closeModal();
-        showAddToItineraryModal({
-            title: place.name || '',
-            address: place.formatted_address || '',
-            lat: lat,
-            lng: lng,
-            category: categoryFromTypes(place.types),
-            imageUrl: photoUrl,
-            placeId: place.place_id || '',
-            rating: place.rating || null
-        });
-    }
-
+    // 지도 카드/검색 결과에서 곧바로 일정에 넣을 때도 공용 팝업을 쓴다
     function showAddToItineraryModal(placeData, removeCandidateId) {
-        const trip = Store.getCurrentTrip();
-        if (!trip || trip.days.length === 0) {
-            UI.showToast('먼저 일정(Day)을 추가해주세요', 'warning');
-            return;
-        }
-
-        const catOptions = Object.entries(UI.categoryInfo).map(([key, info]) =>
-            `<option value="${key}" ${key === placeData.category ? 'selected' : ''}>${info.icon} ${info.label}</option>`
-        ).join('');
-
-        const dayOptions = trip.days.map(d =>
-            `<option value="${d.id}">Day ${d.dayNumber} ${d.date ? '(' + d.date + ')' : ''}</option>`
-        ).join('');
-
-        UI.showModal('📍 일정에 장소 추가', `
-            <div class="form-group">
-                <label>장소명</label>
-                <input type="text" id="map-add-title" value="${UI.escapeHtml(placeData.title)}" class="form-input">
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>일차 선택</label>
-                    <select id="map-add-day" class="form-input">${dayOptions}</select>
-                </div>
-                <div class="form-group">
-                    <label>카테고리</label>
-                    <select id="map-add-category" class="form-input">${catOptions}</select>
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label>시작 시간</label>
-                    <input type="time" id="map-add-start" class="form-input">
-                </div>
-                <div class="form-group">
-                    <label>종료 시간</label>
-                    <input type="time" id="map-add-end" class="form-input">
-                </div>
-            </div>
-            <div class="form-group">
-                <label>주소</label>
-                <input type="text" id="map-add-address" value="${UI.escapeHtml(placeData.address)}" class="form-input" readonly>
-            </div>
-            <div class="form-group">
-                <label>예상 비용</label>
-                <input type="number" id="map-add-cost" class="form-input" placeholder="0">
-            </div>
-            <div class="form-group">
-                <label>메모</label>
-                <textarea id="map-add-notes" class="form-input" rows="2" placeholder="메모를 입력하세요"></textarea>
-            </div>
-            <div class="modal-actions">
-                <button class="btn-outline" onclick="UI.closeModal()">취소</button>
-                <button class="btn-primary" id="btn-map-add-confirm">추가하기</button>
-            </div>
-        `);
-
-        document.getElementById('btn-map-add-confirm').addEventListener('click', () => {
-            const dayId = document.getElementById('map-add-day').value;
-            const title = document.getElementById('map-add-title').value.trim();
-            if (!title) { UI.showToast('장소명을 입력해주세요', 'warning'); return; }
-
-            Store.addItineraryItem(trip.id, dayId, {
-                title,
-                category: document.getElementById('map-add-category').value,
-                startTime: document.getElementById('map-add-start').value,
-                endTime: document.getElementById('map-add-end').value,
-                address: document.getElementById('map-add-address').value,
-                lat: placeData.lat,
-                lng: placeData.lng,
-                placeId: placeData.placeId || null,
-                imageUrl: placeData.imageUrl || '',
-                cost: parseFloat(document.getElementById('map-add-cost').value) || 0,
-                notes: document.getElementById('map-add-notes').value.trim(),
-                candidateVotes: placeData.candidateVotes || []
-            });
-
-            // 후보에서 제거
-            if (removeCandidateId) {
-                Store.removeCandidate(trip.id, removeCandidateId);
-            }
-
-            UI.closeModal();
-            UI.showToast(`"${title}" 일정에 추가됨`, 'success');
-            render();
+        PlacePicker.open({
+            mode: 'itinerary',
+            place: placeData,
+            removeCandidateId: removeCandidateId || null,
+            onSaved: render
         });
     }
 
@@ -4732,6 +4091,6 @@ const MapView = (() => {
              searchPlace, addCandidateToItinerary, focusCandidate, removeCandidate,
              selectSearchResult, closeSearchResults, toggleCandidateMarkers,
              setMapCandidateCatFilter, voteMapCandidate, moveToCandidate,
-             insertCandidateAt, cancelInsert,
-             showPlaceSearchModal, selectSearchAddResult, clearRoutes };
+             insertCandidateAt, cancelInsert, getMap, renderCandidatesList,
+             showPlaceSearchModal, showCandidateSearchModal, clearRoutes };
 })();

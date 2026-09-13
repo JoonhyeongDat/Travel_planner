@@ -3969,3 +3969,77 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     white-space: nowrap;
     flex-shrink: 0;
 }
+
+/* ===================================
+   공용 장소 추가 팝업 (장소 추가 / 일정 후보 추가)
+   =================================== */
+.pp-search {
+    background: var(--primary-bg);
+    padding: 14px;
+    border-radius: var(--radius-md);
+    border: 1.5px dashed var(--primary-light);
+}
+
+.pp-search-label {
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.pp-search-label .material-symbols-rounded {
+    font-size: 1.1rem;
+}
+
+.pp-search-row {
+    display: flex;
+    gap: 8px;
+}
+
+.pp-search-row input {
+    flex: 1;
+}
+
+.pp-search-row .btn-sm {
+    white-space: nowrap;
+}
+
+.pp-search-row .btn-sm .material-symbols-rounded {
+    font-size: 1rem;
+}
+
+.pp-search-hint {
+    margin: 6px 0 0;
+    font-size: 0.74rem;
+    color: var(--text-tertiary);
+}
+
+.pp-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 12px 0;
+    color: var(--text-tertiary);
+    font-size: 0.8rem;
+}
+
+.pp-divider::before,
+.pp-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+}
+
+.pp-link-status {
+    margin-top: 8px;
+    font-size: 0.82rem;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+}
+
+.pp-search .place-add-results {
+    margin-top: 8px;
+    max-height: 240px;
+    background: var(--bg-primary);
+}
