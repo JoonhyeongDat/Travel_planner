@@ -2504,15 +2504,15 @@ const Journal = (() => {
         UI.showModal('메모 작성', `
             <div class="form-group">
                 <label class="form-label">제목 *</label>
-                <input type="text" id="journal-title" placeholder="메모 제목" />
+                <input type="text" id="journal-modal-title" placeholder="메모 제목" />
             </div>
             <div class="form-group">
                 <label class="form-label">내용</label>
-                <textarea id="journal-content" style="min-height:150px" placeholder="여행 아이디어, 팁, 일기 등을 자유롭게 적어보세요"></textarea>
+                <textarea id="journal-modal-content" style="min-height:150px" placeholder="여행 아이디어, 팁, 일기 등을 자유롭게 적어보세요"></textarea>
             </div>
             <div class="form-group">
                 <label class="form-label">태그 (쉼표로 구분)</label>
-                <input type="text" id="journal-tags" placeholder="예: 맛집, 팁, 일기" />
+                <input type="text" id="journal-modal-tags" placeholder="예: 맛집, 팁, 일기" />
             </div>
         `, `
             <button class="btn-outline" onclick="UI.closeModal()">취소</button>
@@ -2521,13 +2521,13 @@ const Journal = (() => {
 
         setTimeout(() => {
             document.getElementById('btn-save-journal').onclick = () => {
-                const title = document.getElementById('journal-title').value.trim();
+                const title = document.getElementById('journal-modal-title').value.trim();
                 if (!title) { UI.showToast('제목을 입력해주세요', 'warning'); return; }
 
-                const tags = document.getElementById('journal-tags').value.split(',').map(t => t.trim()).filter(Boolean);
+                const tags = document.getElementById('journal-modal-tags').value.split(',').map(t => t.trim()).filter(Boolean);
                 Store.addJournal(trip.id, {
                     title,
-                    content: document.getElementById('journal-content').value.trim(),
+                    content: document.getElementById('journal-modal-content').value.trim(),
                     tags,
                     author: Store.getSettings().userName
                 });
@@ -2536,7 +2536,7 @@ const Journal = (() => {
                 render();
                 UI.showToast('메모가 저장되었습니다', 'success');
             };
-            document.getElementById('journal-title').focus();
+            document.getElementById('journal-modal-title').focus();
         }, 50);
     }
 
@@ -2549,15 +2549,15 @@ const Journal = (() => {
         UI.showModal('메모 수정', `
             <div class="form-group">
                 <label class="form-label">제목 *</label>
-                <input type="text" id="journal-title" value="${UI.escapeHtml(journal.title)}" />
+                <input type="text" id="journal-modal-title" value="${UI.escapeHtml(journal.title)}" />
             </div>
             <div class="form-group">
                 <label class="form-label">내용</label>
-                <textarea id="journal-content" style="min-height:150px">${UI.escapeHtml(journal.content)}</textarea>
+                <textarea id="journal-modal-content" style="min-height:150px">${UI.escapeHtml(journal.content)}</textarea>
             </div>
             <div class="form-group">
                 <label class="form-label">태그 (쉼표로 구분)</label>
-                <input type="text" id="journal-tags" value="${journal.tags.join(', ')}" />
+                <input type="text" id="journal-modal-tags" value="${journal.tags.join(', ')}" />
             </div>
         `, `
             <button class="btn-outline" onclick="UI.closeModal()">취소</button>
@@ -2566,13 +2566,13 @@ const Journal = (() => {
 
         setTimeout(() => {
             document.getElementById('btn-save-journal').onclick = () => {
-                const title = document.getElementById('journal-title').value.trim();
+                const title = document.getElementById('journal-modal-title').value.trim();
                 if (!title) { UI.showToast('제목을 입력해주세요', 'warning'); return; }
 
-                const tags = document.getElementById('journal-tags').value.split(',').map(t => t.trim()).filter(Boolean);
+                const tags = document.getElementById('journal-modal-tags').value.split(',').map(t => t.trim()).filter(Boolean);
                 Store.updateJournal(trip.id, journalId, {
                     title,
-                    content: document.getElementById('journal-content').value.trim(),
+                    content: document.getElementById('journal-modal-content').value.trim(),
                     tags
                 });
 
