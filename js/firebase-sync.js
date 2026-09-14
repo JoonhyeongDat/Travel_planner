@@ -51,6 +51,8 @@ const FirebaseSync = (() => {
         trip.candidates = ensureArray(trip.candidates);
         trip.courseCandidates = ensureArray(trip.courseCandidates);
         trip.activityLog = ensureArray(trip.activityLog);
+        // 메모 내부 tags 배열 복원 (태그 없이 저장하면 빈 배열이라 Firebase 가 통째로 지운다)
+        trip.journals.forEach(j => { j.tags = ensureArray(j.tags); });
         // days 내부 items 배열 복원
         trip.days.forEach(day => {
             day.items = ensureArray(day.items);

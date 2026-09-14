@@ -2478,7 +2478,8 @@ const Journal = (() => {
     }
 
     function renderCard(journal) {
-        const tagsHTML = journal.tags.map(t => `<span class="journal-tag">${UI.escapeHtml(t)}</span>`).join('');
+        // 태그 없이 저장된 메모는 Firebase 를 거치며 tags 가 사라져 돌아올 수 있다
+        const tagsHTML = (journal.tags || []).map(t => `<span class="journal-tag">${UI.escapeHtml(t)}</span>`).join('');
 
         return `
             <div class="journal-card" onclick="Journal.showEditModal('${journal.id}')">
@@ -2560,7 +2561,7 @@ const Journal = (() => {
             </div>
             <div class="form-group">
                 <label class="form-label">태그 (쉼표로 구분)</label>
-                <input type="text" id="journal-modal-tags" value="${journal.tags.join(', ')}" />
+                <input type="text" id="journal-modal-tags" value="${(journal.tags || []).join(', ')}" />
             </div>
         `, `
             <button class="btn-outline" onclick="UI.closeModal()">취소</button>
