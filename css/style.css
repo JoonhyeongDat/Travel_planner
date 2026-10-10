@@ -1699,11 +1699,15 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     border-radius: var(--radius-sm);
     overflow: hidden;
     flex-shrink: 0;
+    position: relative;
 }
-.item-image img {
+.item-image img,
+.favorite-image img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    position: absolute;
+    inset: 0;
 }
 .item-image-placeholder {
     width: 100%;
@@ -3191,6 +3195,10 @@ select { cursor: pointer; appearance: none; background-image: url("data:image/sv
     background-size: cover;
     background-position: center;
     position: relative;
+}
+.favorite-image .item-image-placeholder {
+    background: var(--primary-bg);
+    font-size: 3rem;
 }
 .favorite-heart {
     position: absolute;

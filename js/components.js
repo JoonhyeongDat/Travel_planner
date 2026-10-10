@@ -276,6 +276,131 @@ const UI = (() => {
         return `https://source.unsplash.com/400x300/?${query},travel`;
     }
 
+    // ---- 만료된 Google Places 썸네일 복구 ----
+    const photoRefreshRequests = new Map();
+    const photoRefreshFailures = new Map();
+
+    function renderPlaceImage(item, tripId) {
+        const catInfo = categoryInfo[item.category] || categoryInfo.place;
+        const image = item.imageUrl
+            ? `<img src="${escapeHtml(item.imageUrl)}" alt="${escapeHtml(item.title)}" loading="lazy"
+                data-place-photo data-trip-id="${escapeHtml(tripId)}" data-item-id="${escapeHtml(item.id)}"
+                onerror="UI.refreshPlaceImage(this)" />`
+            : '';
+        return `<div class="item-image-placeholder">${catInfo.icon}</div>${image}`;
+    }
+
+    function isGooglePlaceImage(url) {
+        try {
+            const parsed = new URL(url);
+            return (parsed.hostname === 'maps.googleapis.com' && parsed.pathname.startsWith('/maps/api/place/'))
+                || (parsed.hostname === 'places.googleapis.com' && parsed.pathname.includes('/photos/'))
+                || /(^|\.)(googleusercontent\.com|ggpht\.com)$/.test(parsed.hostname);
+        } catch (e) { return false; }
+    }
+
+    function findPhotoItem(tripId, itemId) {
+        const trip = Store.getTrips().find(t => t.id === tripId);
+        for (const day of (trip && trip.days) || []) {
+            const item = day.items.find(i => i.id === itemId);
+            if (item) return { item, dayId: day.id };
+        }
+        return null;
+    }
+
+    function requestPlacePhoto(item) {
+        return new Promise(resolve => {
+            let finished = false;
+            const timeout = setTimeout(() => finish(null), 10000);
+            function finish(result) {
+                if (finished) return;
+                finished = true;
+                clearTimeout(timeout);
+                resolve(result);
+            }
+            function usePlace(place, status) {
+                if (finished) return;
+                if (status !== 'OK' || !place || !place.photos || !place.photos.length) {
+                    finish(null);
+                    return;
+                }
+                try {
+                    const url = place.photos[0].getUrl({ maxWidth: 400 });
+                    // 실제로 로드되는 사진만 저장한다. API/네트워크 실패로 기존 URL을 지우지 않는다.
+                    const probe = new Image();
+                    probe.onload = () => finish({ imageUrl: url, placeId: place.place_id || item.placeId || null });
+                    probe.onerror = () => finish(null);
+                    probe.src = url;
+                } catch (e) { finish(null); }
+            }
+            try {
+                let host = document.getElementById('_place-photo-svc');
+                if (!host) {
+                    host = document.createElement('div');
+                    host.id = '_place-photo-svc';
+                    host.style.display = 'none';
+                    document.body.appendChild(host);
+                }
+                const service = new google.maps.places.PlacesService(host);
+                if (item.placeId) {
+                    // getUrl()의 사진 참조/토큰은 만료될 수 있어 장소 ID로 새 사진을 조회한다.
+                    service.getDetails({ placeId: item.placeId, fields: ['place_id', 'photos'] }, usePlace);
+                } else {
+                    // 장소 ID 없이 저장된 예전 Google 사진도 장소명과 주소로 복구한다.
+                    service.textSearch({ query: [item.title, item.address].filter(Boolean).join(' ') },
+                        (places, status) => usePlace(places && places[0], status));
+                }
+            } catch (e) { finish(null); }
+        });
+    }
+
+    async function refreshPlaceImage(img) {
+        img.style.display = 'none';
+        if (img.dataset.photoRetried) return; // 새 사진마저 실패하면 무한 재요청하지 않는다.
+        img.dataset.photoRetried = '1';
+        const failedUrl = img.getAttribute('src');
+        const { tripId, itemId } = img.dataset;
+        const target = findPhotoItem(tripId, itemId);
+        if (!target || target.item.imageUrl !== failedUrl || !isGooglePlaceImage(failedUrl)) return;
+        if (typeof google === 'undefined' || !google.maps || !google.maps.places) return;
+
+        const snapshot = { ...target.item };
+        const key = snapshot.placeId || JSON.stringify([snapshot.title, snapshot.address]);
+        const lastFailure = photoRefreshFailures.get(key);
+        if (lastFailure && Date.now() - lastFailure < 30000) return;
+
+        // 같은 장소가 일정/즐겨찾기에 동시에 표시돼도 상세 조회는 한 번만 한다.
+        if (!photoRefreshRequests.has(key)) {
+            const request = requestPlacePhoto(snapshot).then(photo => {
+                photoRefreshRequests.delete(key);
+                if (!photo) photoRefreshFailures.set(key, Date.now());
+                else photoRefreshFailures.delete(key);
+                return photo;
+            });
+            photoRefreshRequests.set(key, request);
+        }
+        const photo = await photoRefreshRequests.get(key);
+        if (!photo) return;
+
+        // 조회 중 삭제·이동·수정되거나 원격 데이터가 교체됐으면 현재 항목을 다시 확인한다.
+        const current = findPhotoItem(tripId, itemId);
+        if (!current || current.item.placeId !== snapshot.placeId) return;
+        if (!snapshot.placeId && (current.item.title !== snapshot.title || current.item.address !== snapshot.address)) return;
+        if (current.item.imageUrl === failedUrl) {
+            Store.updateItineraryItem(tripId, current.dayId, itemId, photo);
+        } else if (current.item.imageUrl !== photo.imageUrl) {
+            return; // 사용자가 새로 지정한 이미지를 덮어쓰지 않는다.
+        }
+
+        document.querySelectorAll('img[data-place-photo]').forEach(el => {
+            if (el.dataset.tripId !== tripId || el.dataset.itemId !== itemId) return;
+            if (el.getAttribute('src') !== failedUrl) return;
+            el.dataset.photoRetried = '1';
+            el.src = photo.imageUrl;
+            el.style.display = '';
+        });
+    }
+
     // ---- Google Maps URL 파싱 ----
     function parseGoogleMapsUrl(url) {
         if (!url) return null;
@@ -546,6 +671,8 @@ const UI = (() => {
         reservationTypeInfo,
         expenseCategoryInfo,
         getPlaceImage,
+        renderPlaceImage,
+        refreshPlaceImage,
         parseGoogleMapsUrl,
         reverseGeocode,
         initDragAndDrop,

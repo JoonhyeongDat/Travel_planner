@@ -44,7 +44,7 @@ const Itinerary = (() => {
                 <button class="item-insert-btn" title="여기에 일정 추가"><span class="material-symbols-rounded">add</span></button>
             </div>`;
             day.items.forEach((item, idx) => {
-                itemsHTML += renderItem(item, day.id);
+                itemsHTML += renderItem(item, day.id, trip.id);
                 const next = day.items[idx + 1];
                 if (next) {
                     itemsHTML += renderTravelConnector(item, next, day);
@@ -84,11 +84,9 @@ const Itinerary = (() => {
             </div>`;
     }
 
-    function renderItem(item, dayId) {
+    function renderItem(item, dayId, tripId) {
         const catInfo = UI.categoryInfo[item.category] || UI.categoryInfo.place;
-        const imageHTML = item.imageUrl
-            ? `<div class="item-image"><img src="${UI.escapeHtml(item.imageUrl)}" alt="${UI.escapeHtml(item.title)}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'item-image-placeholder\\'>${catInfo.icon}</div>'"/></div>`
-            : `<div class="item-image"><div class="item-image-placeholder">${catInfo.icon}</div></div>`;
+        const imageHTML = `<div class="item-image">${UI.renderPlaceImage(item, tripId)}</div>`;
 
         const commentsHTML = item.comments.length > 0
             ? `<div class="item-comments">
@@ -2766,19 +2764,14 @@ const Favorites = (() => {
             return;
         }
 
-        container.innerHTML = '<div class="favorites-grid">' + favs.map(renderCard).join('') + '</div>';
+        container.innerHTML = '<div class="favorites-grid">' + favs.map(item => renderCard(item, trip.id)).join('') + '</div>';
     }
 
-    function renderCard(item) {
-        const catInfo = UI.categoryInfo[item.category] || UI.categoryInfo.place;
-        const bgStyle = item.imageUrl
-            ? `background-image:url('${item.imageUrl}');background-size:cover;background-position:center`
-            : `background:var(--primary-bg);display:flex;align-items:center;justify-content:center;font-size:3rem`;
-
+    function renderCard(item, tripId) {
         return `
             <div class="favorite-card">
-                <div class="favorite-image" style="${bgStyle}">
-                    ${!item.imageUrl ? catInfo.icon : ''}
+                <div class="favorite-image">
+                    ${UI.renderPlaceImage(item, tripId)}
                     <div class="favorite-heart"><span class="material-symbols-rounded" style="font-size:1.1rem">favorite</span></div>
                 </div>
                 <div class="favorite-info">
